@@ -7,7 +7,7 @@
 //  Modules:
 //    1 · Round Number Levels      (active)
 //    2 · Moving Averages (EMA)    (active)
-//    3 · —  (coming)
+//    3 · Validation Candles       (active)
 //    4 · —  (coming)
 //    5 · —  (coming)
 //
@@ -174,3 +174,86 @@ if barstate.islast and emaOn and maLabel
     f_maTag(maShow1, ma1, maCol1, maType + str.tostring(maLen1))
     f_maTag(maShow2, ma2, maCol2, maType + str.tostring(maLen2))
     f_maTag(maShow3, ma3, maCol3, maType + str.tostring(maLen3))
+
+// ============================================================================
+//  MODULE 3 · VALIDATION CANDLES
+//  Logic: a REFERENCE candle's HIGH and LOW are the levels to beat.
+//   • Candles that stay INSIDE that range are INVALIDATED (greyed).
+//   • When a later candle closes beyond the high (bull) or low (bear) with a
+//     SOLID body — a real breakout, not a wick — that candle is VALIDATED and
+//     becomes the NEW reference; the chain continues forward.
+//   • The reference is STORED until broken, so the breakout can land on the very
+//     next candle OR 'n' candles later (after n inside/invalidated candles).
+//   • A live box marks the active reference and updates ONLY after a candle
+//     CLOSES — never intrabar (no repaint, no flicker).
+// ============================================================================
+var G3 = "3 · Validation Candles"
+valOn      = input.bool(true, "Enable validation candles", group = G3,
+     tooltip = "Single master switch for this module.")
+valMinBody = input.float(0.6, "Solid breakout: min body (× range)", minval = 0.1, maxval = 1.0, step = 0.05, group = G3,
+     tooltip = "The breaking candle must be SOLID — its body at least this share of its range. BEST 0.6. 0.7+ = only very strong breakouts validate, 0.5 = looser.")
+valBuffer  = input.float(0.0, "Break buffer (× ATR, 0 = off)", minval = 0.0, step = 0.05, group = G3,
+     tooltip = "Optional anti-fakeout: close must clear the level by this × ATR. 0 = pure body-close break. Try 0.10 on noisy pairs.")
+valShowInv = input.bool(true, "Color invalidated (inside) candles", group = G3,
+     tooltip = "Greys the candles that stay inside the reference (not yet validated).")
+valBoxOn   = input.bool(true, "Live reference box (updates on close)", group = G3,
+     tooltip = "Box on the active reference candle. Moves/updates ONLY after a candle closes — never intrabar.")
+cValBull = input.color(#26a69a, "Validated bull", inline = "val1", group = G3)
+cValBear = input.color(#ef5350, "Validated bear", inline = "val1", group = G3)
+cValInv  = input.color(color.new(color.gray, 55), "Invalidated", inline = "val2", group = G3)
+cValBox  = input.color(#f7a600, "Reference box", inline = "val2", group = G3)
+
+valAtr = ta.atr(14)
+var float vHi  = na                 // stored reference high
+var float vLo  = na                 // stored reference low
+var int   vBar = na                 // bar_index of the reference candle
+bool  vBull = false                 // this candle validated bullish
+bool  vBear = false                 // this candle validated bearish
+bool  vInv  = false                 // this candle is inside / invalidated
+color vCol  = na
+if valOn and barstate.isconfirmed
+    if na(vHi)
+        // seed the chain on the first candle
+        vHi := high
+        vLo := low
+        vBar := bar_index
+    else
+        bodyPct = (high - low) > 0 ? math.abs(close - open) / (high - low) : 0.0
+        solid   = bodyPct >= valMinBody                 // "very large body" = solid breakout
+        buf     = valBuffer * valAtr
+        bU = solid and close > vHi + buf                // solid body closes ABOVE the stored high
+        bD = solid and close < vLo - buf                // solid body closes BELOW the stored low
+        if bU and bD                                    // outside bar -> resolve by close vs mid
+            if close >= (vHi + vLo) / 2
+                bD := false
+            else
+                bU := false
+        if bU
+            vBull := true
+            vHi := high
+            vLo := low
+            vBar := bar_index
+        else if bD
+            vBear := true
+            vHi := high
+            vLo := low
+            vBar := bar_index
+        else
+            vInv := true                                // stayed inside -> invalidated
+    vCol := vBull ? cValBull : vBear ? cValBear : (valShowInv and vInv) ? cValInv : na
+barcolor(vCol, title = "Validation status")
+
+// Live reference box — created / updated only on closed candles (never intrabar).
+var box vBox = na
+if valOn and valBoxOn and barstate.isconfirmed and not na(vHi)
+    if na(vBox)
+        vBox := box.new(vBar, vHi, bar_index + 1, vLo, xloc = xloc.bar_index,
+             border_color = color.new(cValBox, 0), border_width = 1, bgcolor = color.new(cValBox, 90))
+    else
+        box.set_left(vBox, vBar)
+        box.set_top(vBox, vHi)
+        box.set_bottom(vBox, vLo)
+        box.set_right(vBox, bar_index + 1)
+
+alertcondition(vBull, "Validated bullish breakout", "A solid candle closed above the stored reference high")
+alertcondition(vBear, "Validated bearish breakout", "A solid candle closed below the stored reference low")

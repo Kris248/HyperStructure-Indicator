@@ -4,7 +4,7 @@ A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.
 up to 5 modules added one at a time. Every module is fully toggleable, non-repainting where it
 matters, and every input has a recommended ("BEST") value in its tooltip.
 
-**Modules:** 1 · Round Numbers · 2 · Moving Averages (active) — 3–5 coming.
+**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles (active) — 4–5 coming.
 Each module has a **single master on/off switch** at the top of its settings group.
 
 ---
@@ -77,4 +77,36 @@ For low-lag entries switch the type to **HMA** or **VWZL**.
 
 ---
 
-*Next up: add Module 3 into `HyperStructure5in1Indicator.pine`.*
+## Module 3 · Validation Candles
+
+A market-structure chain. A **reference candle's** high and low are the levels to beat.
+**Single master switch:** *Enable validation candles*.
+
+### Logic
+
+1. The reference candle's **high / low** define the active range.
+2. Candles that stay **inside** that range are **invalidated** (greyed).
+3. When a later candle **closes beyond** the high (bull) or low (bear) with a **solid body**
+   (a real breakout, not a wick), it is **validated** and becomes the **new reference**.
+4. The reference is **stored until broken** — the breakout can be the next candle or land
+   `n` candles later, after `n` inside/invalidated candles. Either way the breaker is colored.
+5. A **live box** marks the active reference and updates **only after a candle closes**
+   (never intrabar → no repaint, no flicker).
+
+### Settings
+
+| Input | What it does | Best value |
+|---|---|---|
+| **Enable validation candles** | master on/off | on |
+| **Solid breakout: min body** | how solid the breaking candle must be (body ÷ range) | 0.6 (strict 0.7) |
+| **Break buffer (× ATR)** | optional anti-fakeout margin past the level | 0 (0.10 on noisy pairs) |
+| **Color invalidated candles** | grey the inside candles | on |
+| **Live reference box** | box on the active reference, updates on close | on |
+| **Colors** | validated bull / bear / invalidated / box | — |
+
+**Colors:** validated bull = teal, validated bear = red, invalidated = grey, reference box = amber.
+Non-repainting: the chain and box commit on candle **close** only.
+
+---
+
+*Next up: add Module 4 into `HyperStructure5in1Indicator.pine`.*
