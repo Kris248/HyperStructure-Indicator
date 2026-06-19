@@ -1,0 +1,82 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+//  HYPERSTRUCTURE  ·  5-IN-1 INDICATOR
+//  A clean, minimal, modular suite — features added one at a time.
+//  Every module is toggleable; every input has a recommended ("BEST") value.
+//
+//  Modules:
+//    1 · Round Number Levels      (active)
+//    2 · —  (coming)
+//    3 · —  (coming)
+//    4 · —  (coming)
+//    5 · —  (coming)
+//
+//@version=6
+indicator("HyperStructure5in1Indicator", shorttitle = "HyperStructure 5in1", overlay = true,
+     max_lines_count = 500, max_labels_count = 500)
+
+// ============================================================================
+//  MODULE 1 · ROUND NUMBER LEVELS
+//  Horizontal grid at every round price level. Minor lines on the base grid,
+//  bolder "major" lines every Nth level. Forex (auto pip) + gold / indices /
+//  crypto (Price mode).
+// ============================================================================
+var G1 = "1 · Round Numbers"
+rnShow   = input.bool(true, "Show round numbers", group = G1)
+rnMode   = input.string("Pips", "Spacing mode", options = ["Pips", "Price"], group = G1,
+     tooltip = "PIPS: spacing is in pips (forex). PRICE: spacing is a raw price distance — use this for GOLD / indices / crypto.")
+rnSpacing= input.float(500, "Spacing", minval = 0.0001, group = G1,
+     tooltip = "Distance between minor levels.\n• Forex (Pips): 500 = 50-pip grid (1.3000, 1.3050). 1000 = 100-pip (1.3000, 1.3100).\n• GOLD (Price): 5 or 10 -> 2000, 2010 ...\n• Indices (Price): 50 or 100.")
+rnManPip = input.float(0.0, "Manual pip (Pips mode, 0 = auto)", minval = 0, group = G1,
+     tooltip = "Only used in Pips mode. 0 = auto (forex 0.0001, JPY 0.01). Leave at 0 for normal forex.")
+rnSide   = input.int(14, "Levels each side of price", minval = 1, maxval = 240, group = G1,
+     tooltip = "Lines above and below price. BEST 10-16 — keeps the grid clean.")
+rnMajorN = input.int(2, "Major every N levels", minval = 0, group = G1,
+     tooltip = "Every Nth line is bolder. BEST 2 -> with 500 spacing the 1000 levels stand out. 0 = all identical.")
+rnMinCol = input.color(color.new(color.gray, 60), "Minor", inline = "rmn", group = G1)
+rnMinWid = input.int(1, "w", minval = 1, maxval = 4, inline = "rmn", group = G1)
+rnMinSty = input.string("Dashed", "", options = ["Solid", "Dashed", "Dotted"], inline = "rmn", group = G1)
+rnMajCol = input.color(color.new(color.gray, 15), "Major", inline = "rmj", group = G1)
+rnMajWid = input.int(2, "w", minval = 1, maxval = 5, inline = "rmj", group = G1)
+rnMajSty = input.string("Solid", "", options = ["Solid", "Dashed", "Dotted"], inline = "rmj", group = G1)
+rnLabMode= input.string("Major", "Labels", options = ["None", "Major", "All"], group = G1,
+     tooltip = "BEST 'Major' — clean: only the big round numbers are labelled. 'All' can get busy.")
+rnLabSize= input.string("Small", "Label size", options = ["Tiny", "Small", "Normal"], group = G1)
+rnLabOff = input.int(8, "Label offset (bars)", minval = 0, maxval = 40, group = G1)
+
+f_lstyle(s) => s == "Solid" ? line.style_solid : s == "Dotted" ? line.style_dotted : line.style_dashed
+f_lsize(s)  => s == "Tiny" ? size.tiny : s == "Normal" ? size.normal : size.small
+
+isJPY   = str.contains(str.upper(syminfo.currency), "JPY") or str.contains(str.upper(syminfo.tickerid), "JPY")
+autoPip = syminfo.type == "forex" ? (isJPY ? 0.01 : 0.0001) : syminfo.mintick
+rnPip   = rnManPip > 0 ? rnManPip : autoPip
+rnStep  = rnMode == "Price" ? rnSpacing : rnSpacing * rnPip       // price distance between minor levels
+
+var line[]  rnLines = array.new<line>()
+var label[] rnLabs  = array.new<label>()
+if barstate.islast and rnShow and rnStep > 0
+    if array.size(rnLines) > 0
+        for i = 0 to array.size(rnLines) - 1
+            line.delete(array.get(rnLines, i))
+        array.clear(rnLines)
+    if array.size(rnLabs) > 0
+        for i = 0 to array.size(rnLabs) - 1
+            label.delete(array.get(rnLabs, i))
+        array.clear(rnLabs)
+    rnBase = math.round(close / rnStep) * rnStep                 // nearest exact round level
+    for k = -rnSide to rnSide
+        lvl = rnBase + k * rnStep
+        if lvl > 0
+            idx   = math.round(lvl / rnStep)
+            major = rnMajorN > 0 and idx % rnMajorN == 0
+            array.push(rnLines, line.new(bar_index - 1, lvl, bar_index, lvl, xloc = xloc.bar_index,
+                 extend = extend.both,
+                 color = major ? rnMajCol : rnMinCol,
+                 width = major ? rnMajWid : rnMinWid,
+                 style = f_lstyle(major ? rnMajSty : rnMinSty)))
+            showLab = rnLabMode == "All" or (rnLabMode == "Major" and major)
+            if showLab
+                array.push(rnLabs, label.new(bar_index + rnLabOff, lvl, str.tostring(lvl, format.mintick),
+                     xloc = xloc.bar_index, style = label.style_label_left,
+                     color = color.new(color.black, 100), textcolor = major ? rnMajCol : rnMinCol,
+                     size = f_lsize(rnLabSize)))
