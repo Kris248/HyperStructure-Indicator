@@ -8,7 +8,7 @@
 //    1 · Round Number Levels      (active)
 //    2 · Moving Averages (EMA)    (active)
 //    3 · Validation Candles       (active)
-//    4 · —  (coming)
+//    4 · DBox (period range)      (active)
 //    5 · —  (coming)
 //
 //@version=6
@@ -257,3 +257,94 @@ if valOn and valBoxOn and barstate.isconfirmed and not na(vHi)
 
 alertcondition(vBull, "Validated bullish breakout", "A solid candle closed above the stored reference high")
 alertcondition(vBear, "Validated bearish breakout", "A solid candle closed below the stored reference low")
+
+// ============================================================================
+//  MODULE 4 · DBox  (period range box)
+//  Boxes the FULL high-low range of each Day / Week / Month — the whole distance
+//  price travelled in that period — anchored to a chosen timezone (IST default).
+//  Each box: low->high range, filled bull/bear by the period's open vs close,
+//  with an optional period-start vertical line and high/low lines + labels.
+//  Engine runs on closed bars only (clean, no intrabar duplicates).
+// ============================================================================
+var G4 = "4 · DBox (range)"
+dboxOn = input.bool(true, "Enable DBox", group = G4,
+     tooltip = "Single master switch. Boxes the full high-low range of each Day / Week / Month.")
+dbTf   = input.string("Daily", "Time frame", options = ["Daily", "Weekly", "Monthly"], group = G4,
+     tooltip = "Period each box covers. 'DBox' = Daily by default; switch to Weekly / Monthly for the bigger picture.")
+dbTz   = input.string("Asia/Kolkata", "Timezone (period anchor)", group = G4,
+     tooltip = "Periods start at THIS timezone's midnight / week / month. Default IST (Asia/Kolkata). e.g. 'America/New_York', 'UTC'.")
+dbMax  = input.int(6, "History (periods)", minval = 1, maxval = 60, group = G4,
+     tooltip = "How many past boxes to keep on the chart. BEST 4-8.")
+dbVL   = input.bool(true, "Show vertical line", group = G4)
+dbBox  = input.bool(true, "Show box", group = G4)
+dbShowMove = input.bool(true, "Show price movement", group = G4,
+     tooltip = "Labels how much price moved — pips + price difference + direction — on every box.")
+dbLineCol  = input.color(color.new(color.gray, 0),    "Line color", group = G4)
+dbFillBull = input.color(color.new(color.green, 85),  "Fill bull color", group = G4)
+dbFillBear = input.color(color.new(color.red, 85),    "Fill bear color", group = G4)
+dbPosCol   = input.color(color.new(color.green, 0),   "Positive color", group = G4)
+dbNegCol   = input.color(color.new(color.red, 0),     "Negative color", group = G4)
+
+// period id in the chosen timezone -> changes on each new Day / Week / Month
+dbY  = year(time, dbTz)
+dbMo = month(time, dbTz)
+dbD  = dayofmonth(time, dbTz)
+dbW  = weekofyear(time, dbTz)
+dbId = dbTf == "Weekly" ? dbY * 100 + dbW : dbTf == "Monthly" ? dbY * 100 + dbMo : dbY * 10000 + dbMo * 100 + dbD
+
+var float pHigh = na
+var float pLow  = na
+var float pOpen = na
+var int   pStart= na
+var box[]   dBox  = array.new<box>()
+var line[]  dVL   = array.new<line>()
+var label[] dMove = array.new<label>()     // one movement label per box
+
+if dboxOn and barstate.isconfirmed
+    startNew = na(pHigh) or dbId != dbId[1]
+    if startNew
+        // finalise previous period implicitly (its objects keep their last extent)
+        pHigh := high
+        pLow  := low
+        pOpen := open
+        pStart:= bar_index
+        if dbBox
+            b = box.new(bar_index, high, bar_index, low, xloc = xloc.bar_index,
+                 border_color = dbLineCol, border_width = 1, bgcolor = dbFillBull)
+            array.push(dBox, b)
+            if array.size(dBox) > dbMax
+                box.delete(array.shift(dBox))
+        if dbVL
+            v = line.new(bar_index, low, bar_index, high, xloc = xloc.bar_index,
+                 extend = extend.both, color = dbLineCol, width = 1, style = line.style_dotted)
+            array.push(dVL, v)
+            if array.size(dVL) > dbMax
+                line.delete(array.shift(dVL))
+        if dbShowMove
+            ml = label.new(bar_index, high, "", xloc = xloc.bar_index, style = label.style_label_down,
+                 color = color.new(color.black, 100), size = size.small)
+            array.push(dMove, ml)
+            if array.size(dMove) > dbMax
+                label.delete(array.shift(dMove))
+    else
+        pHigh := math.max(pHigh, high)
+        pLow  := math.min(pLow,  low)
+
+    // extend / refresh the CURRENT period's objects
+    pBull = close >= pOpen
+    if dbBox and array.size(dBox) > 0
+        cb = array.get(dBox, array.size(dBox) - 1)
+        box.set_top(cb, pHigh)
+        box.set_bottom(cb, pLow)
+        box.set_right(cb, bar_index)
+        box.set_bgcolor(cb, pBull ? dbFillBull : dbFillBear)
+    // price-movement label — the CURRENT box's label is refreshed each bar; once a
+    // new period starts it keeps its final value. Shows pips + price difference.
+    if dbShowMove and array.size(dMove) > 0
+        movePips = autoPip > 0 ? (pHigh - pLow) / autoPip : 0.0
+        netUp    = close >= pOpen                       // period positive vs negative
+        midX     = int((pStart + bar_index) / 2)
+        cm = array.get(dMove, array.size(dMove) - 1)
+        label.set_xy(cm, midX, pHigh)
+        label.set_text(cm, str.tostring(math.round(movePips)) + " pips  ·  " + str.tostring(pHigh - pLow, format.mintick) + (netUp ? "  ▲" : "  ▼"))
+        label.set_textcolor(cm, netUp ? dbPosCol : dbNegCol)

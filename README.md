@@ -4,7 +4,7 @@ A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.
 up to 5 modules added one at a time. Every module is fully toggleable, non-repainting where it
 matters, and every input has a recommended ("BEST") value in its tooltip.
 
-**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles (active) — 4–5 coming.
+**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles · 4 · DBox (active) — 5 coming.
 Each module has a **single master on/off switch** at the top of its settings group.
 
 ---
@@ -109,4 +109,34 @@ Non-repainting: the chain and box commit on candle **close** only.
 
 ---
 
-*Next up: add Module 4 into `HyperStructure5in1Indicator.pine`.*
+## Module 4 · DBox (period range)
+
+Boxes the **full high-low range** of each Day / Week / Month — the whole distance price
+travelled in that period — anchored to a chosen timezone (**IST by default**).
+**Single master switch:** *Enable DBox*.
+
+### What it draws (per period)
+
+- **Box** from the period **low → high**, filled **light green / red** by the period's
+  open vs close (positive period = green, negative = red — updates live).
+- **Vertical line** at the period start (full height).
+- **Price-movement label** — pips + price difference + ▲/▼ — on **every box**
+  (e.g. `320 pips · 0.03200 ▲`). Each completed box keeps its final value.
+
+### Settings
+
+| Input | What it does | Best value |
+|---|---|---|
+| **Enable DBox** | master on/off | on |
+| **Time frame** | Daily / Weekly / Monthly | Daily |
+| **Timezone** | period anchor (midnight/week/month) | Asia/Kolkata (IST) |
+| **History (periods)** | how many past boxes to keep | 4–8 |
+| **Show vertical line / box / price movement** | visibility toggles | as desired |
+| **Line / Fill bull / Fill bear / Positive / Negative** | colors | — |
+
+**Notes:** periods start at the chosen timezone's boundary (IST midnight for Daily). The
+current box grows as each bar **closes** (no intrabar flicker); past boxes stay fixed.
+
+---
+
+*Next up: add Module 5 into `HyperStructure5in1Indicator.pine`.*
