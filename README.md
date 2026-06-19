@@ -4,7 +4,8 @@ A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.
 up to 5 modules added one at a time. Every module is fully toggleable, non-repainting where it
 matters, and every input has a recommended ("BEST") value in its tooltip.
 
-**Modules:** 1 · Round Numbers (active) — 2–5 coming.
+**Modules:** 1 · Round Numbers · 2 · Moving Averages (active) — 3–5 coming.
+Each module has a **single master on/off switch** at the top of its settings group.
 
 ---
 
@@ -42,4 +43,38 @@ clutter build-up), and span the full chart width.
 
 ---
 
-*Next up: add the following module into `HyperStructure5in1Indicator.pine`.*
+## Module 2 · Moving Averages
+
+Full MA suite — up to 3 lines, **12 selectable types**, fill cloud and value labels.
+**Single master switch:** *Enable Moving Averages*.
+
+### MA types (concept)
+
+| Type | Concept | Use |
+|---|---|---|
+| **EMA** | exponential, most-watched | **best for swing** — acts as real dynamic S/R |
+| SMA | simple average | smoothest, slowest |
+| WMA | linearly weighted | faster than SMA |
+| RMA | Wilder's smoothing | very smooth |
+| **HMA** | Hull | **best low-lag** — fast + smooth |
+| ZLEMA / DEMA / TEMA | lag-reduced EMAs | fast, more whippy |
+| ALMA | Gaussian window | tune offset/sigma |
+| VWMA / VWZL / VHMA | volume-weighted | need **real volume** (futures, indices, gold, crypto) |
+
+### Settings
+
+| Input | What it does | Best value |
+|---|---|---|
+| **Enable Moving Averages** | master on/off | on |
+| **MA type** | one type applied to all 3 lines | EMA (or HMA for low-lag) |
+| **Source / Line style** | price input · Line/Stepline/Circles | close / Line |
+| **MA1 / MA2 / MA3** | toggle · length · width · color | **21 / 50 / 200** |
+| **Fill MA1/MA2** | green/red momentum cloud | on |
+| **Value labels** | price tags at the right edge | on |
+
+**Swing best-setup:** EMA, lengths 21 / 50 / 200 — trigger / swing-trend / macro filter.
+For low-lag entries switch the type to **HMA** or **VWZL**.
+
+---
+
+*Next up: add Module 3 into `HyperStructure5in1Indicator.pine`.*
