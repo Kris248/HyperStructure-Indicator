@@ -4,7 +4,7 @@ A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.
 up to 5 modules added one at a time. Every module is fully toggleable, non-repainting where it
 matters, and every input has a recommended ("BEST") value in its tooltip.
 
-**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles · 4 · DBox (active) — 5 coming.
+**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles · 4 · DBox · 5 · News Danger Zones — **all 5 active**.
 Each module has a **single master on/off switch** at the top of its settings group.
 
 ---
@@ -139,4 +139,51 @@ current box grows as each bar **closes** (no intrabar flicker); past boxes stay 
 
 ---
 
-*Next up: add Module 5 into `HyperStructure5in1Indicator.pine`.*
+## Module 5 · News Danger Zones
+
+Red **no-trade zone** over the hours before each high-impact ("red folder") event.
+**Single master switch:** *Enable news danger zones*.
+
+> **Important — read this:** Pine Script has **no access to an economic calendar**. It
+> cannot auto-detect red-folder news. So you **paste the event times** (a ~1-minute weekly
+> copy from ForexFactory). Every TradingView news indicator works this way.
+
+### How to use (keep ONE master list for all charts)
+
+1. On ForexFactory: filter to **high-impact (red)** only, and set its **timezone to match**
+   the **News timezone** input (default IST). *(This is critical — wrong timezone = wrong zone.)*
+2. Paste each red event as `YYYY-MM-DD HH:MM CUR note`, comma-separated. Time can be 24h
+   or am/pm. **Include the 3-letter currency** — that's what powers auto-filter:
+   `2026-06-22 18:00 CAD CPI, 2026-06-25 6:00pm USD PCE`
+3. Leave **Only this chart's currencies** ON. Now EURUSD shows only EUR/USD events, USDCAD
+   shows USD/CAD, gold (XAUUSD) shows USD — **from the same list**. No per-chart editing.
+4. Each shown event fills a red **RESTRICTED AREA** box over the **5h before** the event
+   (so you don't enter), plus a vertical line at the event and a ⛔ label (currency + note).
+   The box renders in the **future** too, so you see the restricted window in advance.
+
+> You only ever transcribe the red events once per week; the script picks the relevant ones
+> per symbol automatically. Same list works on every chart.
+>
+> **Filtering needs the currency code.** An entry written without its 3-letter currency
+> (e.g. `2026-06-22 18:00 CPI`) can't be filtered and will show on every chart. Always
+> include `CUR` (e.g. `... 18:00 USD CPI`).
+
+### Settings
+
+| Input | What it does | Best value |
+|---|---|---|
+| **Enable news danger zones** | master on/off | on |
+| **Red-folder news** | one master event list (with currency codes) | update weekly |
+| **Only this chart's currencies** | auto-filter events to the symbol's pair | **on** |
+| **News timezone** | timezone of the entered times (match ForexFactory) | Asia/Kolkata (IST) |
+| **Hours before** | no-trade window length before event | **5** |
+| **Hours after** | optional post-event window | 0 (0.5–1 for spike) |
+| **Danger color / Zone transparency** | fill styling | red / 85 |
+
+**Notes:** zones and lines render in the **future** too, so upcoming events warn you ahead of
+time. The background fill appears on bars inside the window; the lines + ⚠ label mark the
+event even before price gets there. Non-repainting.
+
+---
+
+*All 5 modules complete. Combine modules with their master switches to taste.*

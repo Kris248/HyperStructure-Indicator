@@ -9,11 +9,25 @@
 //    2 · Moving Averages (EMA)    (active)
 //    3 · Validation Candles       (active)
 //    4 · DBox (period range)      (active)
-//    5 · —  (coming)
+//    5 · News Danger Zones        (active)
 //
 //@version=6
-indicator("HyperStructure5in1Indicator", shorttitle = "HyperStructure 5in1", overlay = true,
-     max_lines_count = 500, max_labels_count = 500)
+indicator("HyperStructure5in1Indicator", shorttitle = "HS 5in1", overlay = true,
+     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 100)
+
+// ============================================================================
+//  GLOBAL DISPLAY
+// ============================================================================
+var GD = "Display"
+txtSize = input.string("Small", "Text size (labels)", options = ["Tiny", "Small", "Normal", "Large"], group = GD,
+     tooltip = "Size of module labels. Tiny / Small save chart space.")
+f_size() =>
+    switch txtSize
+        "Tiny"   => size.tiny
+        "Normal" => size.normal
+        "Large"  => size.large
+        => size.small
+tSize = f_size()
 
 // ============================================================================
 //  MODULE 1 · ROUND NUMBER LEVELS
@@ -348,3 +362,147 @@ if dboxOn and barstate.isconfirmed
         label.set_xy(cm, midX, pHigh)
         label.set_text(cm, str.tostring(math.round(movePips)) + " pips  ·  " + str.tostring(pHigh - pLow, format.mintick) + (netUp ? "  ▲" : "  ▼"))
         label.set_textcolor(cm, netUp ? dbPosCol : dbNegCol)
+
+// ============================================================================
+//  MODULE 5 · NEWS DANGER ZONES  (manual red-folder calendar, auto-filtered)
+//  IMPORTANT: Pine Script CANNOT read an economic calendar — there is no API for
+//  red-folder news inside TradingView. So you PASTE one master list of high-impact
+//  events (a ~1-min weekly copy from ForexFactory). Each event carries its CURRENCY
+//  code, and "Only this chart's currencies" auto-shows just the events that affect
+//  the symbol you're on — so you keep ONE list for all charts.
+//  Each shown event fills a red "RESTRICTED AREA" box over the N hours BEFORE it
+//  (default 5h) + a vertical line at the event — so you don't enter before red news.
+//  Format:  YYYY-MM-DD HH:MM CUR note ,  comma-separated.  Time may be 24h or am/pm.
+//    e.g.  2026-06-22 18:00 CAD CPI, 2026-06-25 6:00pm USD PCE
+// ============================================================================
+var G5 = "5 · News Danger Zones"
+newsOn   = input.bool(true, "Enable news danger zones", group = G5,
+     tooltip = "Single master switch. Pine cannot auto-read news — paste the red-folder times below.")
+newsList = input.string("2026-06-22 18:00 CAD CPI, 2026-06-24 07:00 AUD CPI, 2026-06-25 07:00 AUD Employment, 2026-06-25 18:00 USD PCE", "Red-folder news", group = G5,
+     tooltip = "Format per event: YYYY-MM-DD HH:MM CUR note  (comma-separated). Time can be 24h (18:00) or am/pm (6:00pm). Include the 3-letter CURRENCY so auto-filter works. Paste ONLY high-impact (red) events from ForexFactory; update weekly.")
+newsAuto = input.bool(true, "Only this chart's currencies", group = G5,
+     tooltip = "ON = show only events whose currency matches the chart's pair (e.g. EURUSD shows EUR + USD). Lets you keep ONE master list for every chart. OFF = show all events.")
+newsTz   = input.string("Asia/Kolkata", "News timezone", group = G5,
+     tooltip = "Timezone the times above are in — MUST match your ForexFactory calendar setting. Default IST.")
+newsBefore = input.float(5, "Hours before (danger window)", minval = 0, step = 0.5, group = G5,
+     tooltip = "No-trade window length BEFORE each event. Your rule = 5h.")
+newsAfter  = input.float(0, "Hours after", minval = 0, step = 0.5, group = G5,
+     tooltip = "Optional extra window AFTER the event (post-news spike). 0 = none.")
+newsCol    = input.color(color.red, "Restricted color", group = G5)
+newsTransp = input.int(80, "Zone transparency", minval = 0, maxval = 100, group = G5,
+     tooltip = "Fill opacity of the restricted box. Lower = deeper/stronger color, higher = lighter. 80 = light-deep.")
+
+// --- parse the pasted list ONCE into timestamps + currency + note ---
+f_parseNews(lst, tz) =>
+    ts  = array.new<int>()
+    cur = array.new<string>()
+    nt  = array.new<string>()
+    if str.length(lst) > 0
+        items = str.split(lst, ",")
+        for i = 0 to array.size(items) - 1
+            toks = str.split(array.get(items, i), " ")
+            string dp = na
+            string tp = na
+            string cc = na
+            string note = ""
+            for j = 0 to array.size(toks) - 1
+                tk = array.get(toks, j)
+                if str.length(tk) > 0
+                    if na(dp) and str.contains(tk, "-")
+                        dp := tk
+                    else if na(tp) and str.contains(tk, ":")
+                        tp := tk
+                    else if na(cc)
+                        cc := tk
+                    else
+                        note := note + (str.length(note) > 0 ? " " : "") + tk
+            if not na(dp) and not na(tp)
+                ds   = str.split(dp, "-")
+                lowt = str.lower(tp)
+                isPM = str.contains(lowt, "pm")
+                isAM = str.contains(lowt, "am")
+                tms  = str.split(str.replace_all(str.replace_all(lowt, "pm", ""), "am", ""), ":")
+                if array.size(ds) >= 3 and array.size(tms) >= 1
+                    y  = int(str.tonumber(array.get(ds, 0)))
+                    mo = int(str.tonumber(array.get(ds, 1)))
+                    d  = int(str.tonumber(array.get(ds, 2)))
+                    h  = int(str.tonumber(array.get(tms, 0)))
+                    mi = array.size(tms) >= 2 ? int(str.tonumber(array.get(tms, 1))) : 0
+                    if not na(h) and isPM and h < 12
+                        h := h + 12
+                    if not na(h) and isAM and h == 12
+                        h := 0
+                    if not na(y) and not na(mo) and not na(d) and not na(h) and not na(mi)
+                        array.push(ts, timestamp(tz, y, mo, d, h, mi, 0))
+                        array.push(cur, na(cc) ? "" : str.upper(cc))
+                        array.push(nt, note)
+    [ts, cur, nt]
+
+var int[]    newsTs  = array.new<int>()
+var string[] newsCur = array.new<string>()
+var string[] newsNt  = array.new<string>()
+if barstate.isfirst
+    [pTs, pCu, pNt] = f_parseNews(newsList, newsTz)
+    newsTs  := pTs
+    newsCur := pCu
+    newsNt  := pNt
+
+// currencies of the current chart (e.g. EURUSD -> EUR + USD; XAUUSD -> XAU + USD).
+// Robust match: quote ccy, base ccy, OR the code appearing in the ticker text.
+ccyA    = str.upper(syminfo.currency)
+ccyB    = str.upper(syminfo.basecurrency)
+chartUp = str.upper(syminfo.ticker)
+f_relevant(cc) => not newsAuto or str.length(cc) == 0 or cc == ccyA or cc == ccyB or str.contains(chartUp, cc)
+
+// --- detect if the live bar sits inside a restricted window (for the alert) ---
+beforeMs = newsBefore * 3600000.0
+afterMs  = newsAfter  * 3600000.0
+inZone = false
+if newsOn and array.size(newsTs) > 0
+    for i = 0 to array.size(newsTs) - 1
+        if f_relevant(array.get(newsCur, i))
+            ev = array.get(newsTs, i)
+            if time >= ev - beforeMs and time <= ev + afterMs
+                inZone := true
+                break
+
+// Tall fill range taken from recent data so the box looks full-height WITHOUT
+// blowing up the price scale.
+zoneHi = ta.highest(high, 500)
+zoneLo = ta.lowest(low, 500)
+
+// --- filled RESTRICTED AREA box (5h before -> event) + event line + label ----
+var box[]   nBx = array.new<box>()
+var line[]  nLn = array.new<line>()
+var label[] nLb = array.new<label>()
+if barstate.islast
+    if array.size(nBx) > 0
+        for i = 0 to array.size(nBx) - 1
+            box.delete(array.get(nBx, i))
+        array.clear(nBx)
+    if array.size(nLn) > 0
+        for i = 0 to array.size(nLn) - 1
+            line.delete(array.get(nLn, i))
+        array.clear(nLn)
+    if array.size(nLb) > 0
+        for i = 0 to array.size(nLb) - 1
+            label.delete(array.get(nLb, i))
+        array.clear(nLb)
+    if newsOn and array.size(newsTs) > 0
+        for i = 0 to array.size(newsTs) - 1
+            cc = array.get(newsCur, i)
+            if f_relevant(cc)
+                ev     = array.get(newsTs, i)
+                startT = int(ev - beforeMs)
+                rightT = int(ev + afterMs)
+                // filled vertical restricted zone from N hours before up to the event
+                array.push(nBx, box.new(startT, zoneHi, rightT, zoneLo, xloc = xloc.bar_time,
+                     border_color = color.new(newsCol, 60), bgcolor = color.new(newsCol, newsTransp)))
+                // vertical line at the event time
+                array.push(nLn, line.new(ev, zoneLo, ev, zoneHi, xloc = xloc.bar_time, extend = extend.both, color = newsCol, width = 2))
+                nt  = array.get(newsNt, i)
+                txt = "⛔ RESTRICTED AREA" + (str.length(cc) > 0 ? " · " + cc : "") + (str.length(nt) > 0 ? "\n" + nt : "")
+                array.push(nLb, label.new(ev, zoneHi, txt, xloc = xloc.bar_time,
+                     style = label.style_label_down, color = newsCol, textcolor = color.white, size = tSize))
+
+alertcondition(inZone, "In restricted news window", "Inside a red-folder restricted window — do not take entries")
