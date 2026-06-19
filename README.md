@@ -1,11 +1,14 @@
-# HyperStructure 5-in-1 Indicator
+# HyperStructure Indicator (7 modules)
 
 A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.pine` — built as
-up to 5 modules added one at a time. Every module is fully toggleable, non-repainting where it
+modules added one at a time. Every module is fully toggleable, non-repainting where it
 matters, and every input has a recommended ("BEST") value in its tooltip.
 
-**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles · 4 · DBox · 5 · News Danger Zones — **all 5 active**.
+**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles · 4 · DBox ·
+5 · News Danger Zones · 6 · MTF Trend · 7 · Projection — **all active**.
 Each module has a **single master on/off switch** at the top of its settings group.
+
+*(File/indicator name still says `5in1` for compatibility — rename anytime.)*
 
 ---
 
@@ -186,4 +189,40 @@ event even before price gets there. Non-repainting.
 
 ---
 
-*All 5 modules complete. Combine modules with their master switches to taste.*
+## Module 6 · MTF Trend Dashboard
+
+Top-corner table of the trend on **15m / 1H / 2H / 4H / Daily**, plus an **overall weighted
+probability**. **Single master switch:** *Enable MTF trend dashboard*.
+
+- **Per-TF trend:** BULL only if price is above a **rising** trend-EMA, BEAR if below a
+  **falling** one, else NEUTRAL (transition). More robust than price-vs-MA alone.
+- **Overall %:** higher timeframes weigh more (Daily ×5 … 15m ×1). The % shows how aligned
+  the big picture is — e.g. `Bullish 80%` means the weighted higher TFs strongly agree.
+
+| Input | What it does | Best value |
+|---|---|---|
+| **Enable MTF trend dashboard** | master on/off | on |
+| **Trend EMA length** | EMA judging each TF's trend | 50 (20 faster, 200 major) |
+| **Table position** | corner placement | Top Right |
+| **Bull / Bear / Neutral** | colors | — |
+
+## Module 7 · Projection (estimate)
+
+A thin curve from the last bar showing where price **drifts if the recent trend continues**.
+**Single master switch:** *Enable projection curve*.
+
+> **Honest note:** this is an **extrapolation**, *not* a prediction. It takes the recent
+> linear-regression slope and decays it so the curve flattens over time (trends fade). No
+> indicator can forecast price — use it only as a visual bias guide.
+
+| Input | What it does | Best value |
+|---|---|---|
+| **Enable projection curve** | master on/off | on |
+| **Momentum length** | bars of recent price for the slope | 50 |
+| **Project forward** | how many bars ahead to draw | 20 (≈ a few days, TF-dependent) |
+| **Trend fade** | 1 = straight line, <1 = curves flat | 0.96 |
+| **Curve color** | styling | — |
+
+---
+
+*All 7 modules complete. Combine them with their master switches to taste.*

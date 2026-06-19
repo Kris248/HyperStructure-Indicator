@@ -10,10 +10,12 @@
 //    3 · Validation Candles       (active)
 //    4 · DBox (period range)      (active)
 //    5 · News Danger Zones        (active)
+//    6 · MTF Trend Dashboard      (active)
+//    7 · Projection (estimate)    (active)
 //
 //@version=6
-indicator("HyperStructure5in1Indicator", shorttitle = "HS 5in1", overlay = true,
-     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 100)
+indicator("HyperStructure7in1Indicator", shorttitle = "HS 7in1", overlay = true,
+     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 100, max_polylines_count = 10)
 
 // ============================================================================
 //  GLOBAL DISPLAY
@@ -506,3 +508,94 @@ if barstate.islast
                      style = label.style_label_down, color = newsCol, textcolor = color.white, size = tSize))
 
 alertcondition(inZone, "In restricted news window", "Inside a red-folder restricted window — do not take entries")
+
+// ============================================================================
+//  MODULE 6 · MULTI-TIMEFRAME TREND  (top-right dashboard)
+//  Trend on 15m / 1H / 2H / 4H / Daily + an overall weighted probability.
+//  Per-TF rule: BULL only if price is above a RISING trend-EMA, BEAR if below a
+//  FALLING one, else NEUTRAL (transition). Higher timeframes weigh more in the
+//  overall read, so the % tells you how aligned the big picture is.
+// ============================================================================
+var G6 = "6 · MTF Trend"
+trendOn  = input.bool(true, "Enable MTF trend dashboard", group = G6, tooltip = "Single master switch.")
+trendLen = input.int(50, "Trend EMA length", minval = 5, group = G6,
+     tooltip = "EMA used to judge each timeframe's trend. BEST 50. 20 = faster, 200 = only major trends.")
+trendPos = input.string("Top Right", "Table position", options = ["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group = G6)
+cTBull = input.color(#26a69a, "Bull", inline = "t1", group = G6)
+cTBear = input.color(#ef5350, "Bear", inline = "t1", group = G6)
+cTNeut = input.color(color.gray, "Neutral", inline = "t1", group = G6)
+
+sym = syminfo.tickerid
+f_tfTrend(tf, ln) =>
+    [c, e, ep] = request.security(sym, tf, [close, ta.ema(close, ln), ta.ema(close, ln)[1]],
+         lookahead = barmerge.lookahead_off, gaps = barmerge.gaps_off)
+    rising = e > ep
+    c > e and rising ? 1 : c < e and not rising ? -1 : 0
+
+t15 = f_tfTrend("15",  trendLen)
+t1h = f_tfTrend("60",  trendLen)
+t2h = f_tfTrend("120", trendLen)
+t4h = f_tfTrend("240", trendLen)
+tD  = f_tfTrend("D",   trendLen)
+
+// weighted overall (Daily weighs most)
+bullW = (t15 > 0 ? 1 : 0) + (t1h > 0 ? 2 : 0) + (t2h > 0 ? 3 : 0) + (t4h > 0 ? 4 : 0) + (tD > 0 ? 5 : 0)
+bearW = (t15 < 0 ? 1 : 0) + (t1h < 0 ? 2 : 0) + (t2h < 0 ? 3 : 0) + (t4h < 0 ? 4 : 0) + (tD < 0 ? 5 : 0)
+netW  = bullW - bearW
+ovDir = netW > 0 ? 1 : netW < 0 ? -1 : 0
+ovPct = math.round(math.abs(netW) / 15.0 * 100)
+
+f_tt(d) => d > 0 ? "Bullish" : d < 0 ? "Bearish" : "Neutral"
+f_tc(d) => d > 0 ? cTBull : d < 0 ? cTBear : cTNeut
+f_tpos(p) => p == "Top Left" ? position.top_left : p == "Bottom Right" ? position.bottom_right : p == "Bottom Left" ? position.bottom_left : position.top_right
+
+var table mtfTbl = table.new(f_tpos(trendPos), 2, 7, border_width = 1, frame_color = color.new(color.gray, 40), frame_width = 1)
+f_trow(r, k, v, c) =>
+    table.cell(mtfTbl, 0, r, k, text_color = color.silver, text_size = tSize, text_halign = text.align_left, bgcolor = color.new(color.black, 10))
+    table.cell(mtfTbl, 1, r, v, text_color = c, text_size = tSize, text_halign = text.align_left, bgcolor = color.new(color.black, 10))
+if barstate.islast and trendOn
+    f_trow(0, "MTF TREND", syminfo.ticker, color.aqua)
+    f_trow(1, "15m",   f_tt(t15), f_tc(t15))
+    f_trow(2, "1H",    f_tt(t1h), f_tc(t1h))
+    f_trow(3, "2H",    f_tt(t2h), f_tc(t2h))
+    f_trow(4, "4H",    f_tt(t4h), f_tc(t4h))
+    f_trow(5, "Daily", f_tt(tD),  f_tc(tD))
+    f_trow(6, "Overall", f_tt(ovDir) + "  " + str.tostring(ovPct) + "%", f_tc(ovDir))
+
+// ============================================================================
+//  MODULE 7 · PROJECTION  (likely path — ESTIMATE, NOT a prediction)
+//  A thin curve from the last bar projecting where price drifts IF the recent
+//  trend continues — linear-regression slope, gently decayed so it flattens over
+//  time (trends fade). This is an EXTRAPOLATION, not a forecast. Markets are not
+//  predictable; use it only as a visual bias guide.
+// ============================================================================
+var G7 = "7 · Projection"
+projOn    = input.bool(true, "Enable projection curve", group = G7,
+     tooltip = "Single master switch. NOTE: an estimate from recent momentum, NOT a real prediction of the future.")
+projLen   = input.int(50, "Momentum length (bars)", minval = 5, group = G7,
+     tooltip = "Bars of recent price used to measure trend slope. BEST 50. Shorter = reacts faster / noisier.")
+projBars  = input.int(20, "Project forward (bars)", minval = 1, maxval = 100, group = G7,
+     tooltip = "How far ahead to draw. In bars of the current chart TF (e.g. 20 bars on a 4H chart ≈ a few days).")
+projDecay = input.float(0.96, "Trend fade", minval = 0.5, maxval = 1.0, step = 0.01, group = G7,
+     tooltip = "How fast the projected trend flattens. 1 = straight line, <1 = curves toward flat. 0.96 = realistic fade.")
+projCol   = input.color(color.new(color.aqua, 0), "Curve color", group = G7)
+
+projSlope = ta.linreg(close, projLen, 0) - ta.linreg(close, projLen, 1)   // per-bar regression slope
+
+var polyline projPL  = na
+var label    projLbl = na
+if barstate.islast
+    if not na(projPL)
+        polyline.delete(projPL)
+    if not na(projLbl)
+        label.delete(projLbl)
+    if projOn
+        pts = array.new<chart.point>()
+        array.push(pts, chart.point.from_index(bar_index, close))
+        cum = 0.0
+        for k = 1 to projBars
+            cum := cum + projSlope * math.pow(projDecay, k)              // decaying step -> curve
+            array.push(pts, chart.point.from_index(bar_index + k, close + cum))
+        projPL := polyline.new(pts, curved = true, line_color = projCol, line_width = 1)
+        projLbl := label.new(bar_index + projBars, close + cum, "~ projection (est.)", xloc = xloc.bar_index,
+             style = label.style_label_left, color = color.new(projCol, 80), textcolor = projCol, size = size.tiny)
