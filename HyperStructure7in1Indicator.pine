@@ -1,6 +1,6 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 //
-//  HYPERSTRUCTURE  ·  5-IN-1 INDICATOR
+//  HYPERSTRUCTURE  ·  7-IN-1 INDICATOR
 //  A clean, minimal, modular suite — features added one at a time.
 //  Every module is toggleable; every input has a recommended ("BEST") value.
 //
@@ -41,7 +41,7 @@ var G1 = "1 · Round Numbers"
 rnShow   = input.bool(true, "Show round numbers", group = G1)
 rnMode   = input.string("Pips", "Spacing mode", options = ["Pips", "Price"], group = G1,
      tooltip = "PIPS: spacing is in pips (forex). PRICE: spacing is a raw price distance — use this for GOLD / indices / crypto.")
-rnSpacing= input.float(500, "Spacing", minval = 0.0001, group = G1,
+rnSpacing= input.float(50, "Spacing", minval = 0.0001, group = G1,
      tooltip = "Distance between minor levels.\n• Forex (Pips): 500 = 50-pip grid (1.3000, 1.3050). 1000 = 100-pip (1.3000, 1.3100).\n• GOLD (Price): 5 or 10 -> 2000, 2010 ...\n• Indices (Price): 50 or 100.")
 rnManPip = input.float(0.0, "Manual pip (Pips mode, 0 = auto)", minval = 0, group = G1,
      tooltip = "Only used in Pips mode. 0 = auto (forex 0.0001, JPY 0.01). Leave at 0 for normal forex.")
@@ -49,16 +49,16 @@ rnSide   = input.int(14, "Levels each side of price", minval = 1, maxval = 240, 
      tooltip = "Lines above and below price. BEST 10-16 — keeps the grid clean.")
 rnMajorN = input.int(2, "Major every N levels", minval = 0, group = G1,
      tooltip = "Every Nth line is bolder. BEST 2 -> with 500 spacing the 1000 levels stand out. 0 = all identical.")
-rnMinCol = input.color(color.new(color.gray, 60), "Minor", inline = "rmn", group = G1)
+rnMinCol = input.color(color.new(#2962ff, 60), "Minor", inline = "rmn", group = G1)
 rnMinWid = input.int(1, "w", minval = 1, maxval = 4, inline = "rmn", group = G1)
 rnMinSty = input.string("Dashed", "", options = ["Solid", "Dashed", "Dotted"], inline = "rmn", group = G1)
-rnMajCol = input.color(color.new(color.gray, 15), "Major", inline = "rmj", group = G1)
+rnMajCol = input.color(color.new(#2962ff, 0), "Major", inline = "rmj", group = G1)
 rnMajWid = input.int(2, "w", minval = 1, maxval = 5, inline = "rmj", group = G1)
 rnMajSty = input.string("Solid", "", options = ["Solid", "Dashed", "Dotted"], inline = "rmj", group = G1)
 rnLabMode= input.string("Major", "Labels", options = ["None", "Major", "All"], group = G1,
      tooltip = "BEST 'Major' — clean: only the big round numbers are labelled. 'All' can get busy.")
 rnLabSize= input.string("Small", "Label size", options = ["Tiny", "Small", "Normal"], group = G1)
-rnLabOff = input.int(8, "Label offset (bars)", minval = 0, maxval = 40, group = G1)
+rnLabOff = input.int(25, "Label offset (bars)", minval = 0, maxval = 40, group = G1)
 
 f_lstyle(s) => s == "Solid" ? line.style_solid : s == "Dotted" ? line.style_dotted : line.style_dashed
 f_lsize(s)  => s == "Tiny" ? size.tiny : s == "Normal" ? size.normal : size.small
@@ -108,7 +108,7 @@ if barstate.islast and rnShow and rnStep > 0
 var G2 = "2 · Moving Averages"
 emaOn   = input.bool(true, "Enable Moving Averages", group = G2,
      tooltip = "Single master switch for this whole module.")
-maType  = input.string("EMA", "MA type",
+maType  = input.string("HMA", "MA type",
      options = ["EMA","SMA","WMA","RMA","VWMA","HMA","ZLEMA","DEMA","TEMA","ALMA","VWZL","VHMA"], group = G2,
      tooltip = "EMA: exponential, market-watched -> real dynamic S/R (BEST for swing).\nSMA: simple, smoothest/slowest.\nWMA: weighted, faster than SMA.\nRMA: Wilder's, very smooth.\nHMA: Hull, low lag + smooth (BEST low-lag).\nZLEMA / DEMA / TEMA: lag-reduced EMAs (fast, more whippy).\nALMA: Gaussian — tune offset/sigma.\nVWMA / VWZL / VHMA: volume-weighted (need REAL volume: futures, indices, gold, crypto).")
 maSrc   = input.source(close, "Source", group = G2, tooltip = "Price the MA is built from. BEST close.")
@@ -119,17 +119,17 @@ almaOff = input.float(0.85, "ALMA offset", minval = 0, maxval = 1, step = 0.05, 
 almaSig = input.float(6.0,  "ALMA sigma", minval = 1, group = G2, tooltip = "ALMA only. 6 standard.")
 // Each MA: toggle | length | width | color
 maShow1 = input.bool(true,  "MA1", inline = "ma1", group = G2)
-maLen1  = input.int(21,  "", inline = "ma1", group = G2, minval = 1, tooltip = "BEST 21 = fast swing trigger.")
-maWid1  = input.int(2, "w", inline = "ma1", group = G2, minval = 1, maxval = 5)
-maCol1  = input.color(color.aqua, "", inline = "ma1", group = G2)
+maLen1  = input.int(50,  "", inline = "ma1", group = G2, minval = 1, tooltip = "BEST 21 = fast swing trigger.")
+maWid1  = input.int(1, "w", inline = "ma1", group = G2, minval = 1, maxval = 5)
+maCol1  = input.color(#089981, "", inline = "ma1", group = G2)
 maShow2 = input.bool(true,  "MA2", inline = "ma2", group = G2)
-maLen2  = input.int(50,  "", inline = "ma2", group = G2, minval = 1, tooltip = "BEST 50 = swing trend, key institutional level.")
-maWid2  = input.int(2, "w", inline = "ma2", group = G2, minval = 1, maxval = 5)
-maCol2  = input.color(color.orange, "", inline = "ma2", group = G2)
+maLen2  = input.int(200,  "", inline = "ma2", group = G2, minval = 1, tooltip = "BEST 50 = swing trend, key institutional level.")
+maWid2  = input.int(1, "w", inline = "ma2", group = G2, minval = 1, maxval = 5)
+maCol2  = input.color(#e91e63, "", inline = "ma2", group = G2)
 maShow3 = input.bool(true,  "MA3", inline = "ma3", group = G2)
-maLen3  = input.int(200, "", inline = "ma3", group = G2, minval = 1, tooltip = "BEST 200 = macro trend filter; trade with its slope.")
-maWid3  = input.int(3, "w", inline = "ma3", group = G2, minval = 1, maxval = 5)
-maCol3  = input.color(color.red, "", inline = "ma3", group = G2)
+maLen3  = input.int(21, "", inline = "ma3", group = G2, minval = 1, tooltip = "BEST 200 = macro trend filter; trade with its slope.")
+maWid3  = input.int(1, "w", inline = "ma3", group = G2, minval = 1, maxval = 5)
+maCol3  = input.color(#ff9800, "", inline = "ma3", group = G2)
 maFill  = input.bool(true, "Fill MA1/MA2", inline = "maf", group = G2)
 maFUp   = input.color(color.new(color.green, 80), "", inline = "maf", group = G2)
 maFDn   = input.color(color.new(color.red, 80),   "", inline = "maf", group = G2)
@@ -285,11 +285,11 @@ alertcondition(vBear, "Validated bearish breakout", "A solid candle closed below
 var G4 = "4 · DBox (range)"
 dboxOn = input.bool(true, "Enable DBox", group = G4,
      tooltip = "Single master switch. Boxes the full high-low range of each Day / Week / Month.")
-dbTf   = input.string("Daily", "Time frame", options = ["Daily", "Weekly", "Monthly"], group = G4,
+dbTf   = input.string("Weekly", "Time frame", options = ["Daily", "Weekly", "Monthly"], group = G4,
      tooltip = "Period each box covers. 'DBox' = Daily by default; switch to Weekly / Monthly for the bigger picture.")
 dbTz   = input.string("Asia/Kolkata", "Timezone (period anchor)", group = G4,
      tooltip = "Periods start at THIS timezone's midnight / week / month. Default IST (Asia/Kolkata). e.g. 'America/New_York', 'UTC'.")
-dbMax  = input.int(6, "History (periods)", minval = 1, maxval = 60, group = G4,
+dbMax  = input.int(16, "History (periods)", minval = 1, maxval = 60, group = G4,
      tooltip = "How many past boxes to keep on the chart. BEST 4-8.")
 dbVL   = input.bool(true, "Show vertical line", group = G4)
 dbBox  = input.bool(true, "Show box", group = G4)
@@ -388,7 +388,7 @@ newsTz   = input.string("Asia/Kolkata", "News timezone", group = G5,
      tooltip = "Timezone the times above are in — MUST match your ForexFactory calendar setting. Default IST.")
 newsBefore = input.float(5, "Hours before (danger window)", minval = 0, step = 0.5, group = G5,
      tooltip = "No-trade window length BEFORE each event. Your rule = 5h.")
-newsAfter  = input.float(0, "Hours after", minval = 0, step = 0.5, group = G5,
+newsAfter  = input.float(1, "Hours after", minval = 0, step = 0.5, group = G5,
      tooltip = "Optional extra window AFTER the event (post-news spike). 0 = none.")
 newsCol    = input.color(color.red, "Restricted color", group = G5)
 newsTransp = input.int(80, "Zone transparency", minval = 0, maxval = 100, group = G5,
@@ -563,39 +563,92 @@ if barstate.islast and trendOn
     f_trow(6, "Overall", f_tt(ovDir) + "  " + str.tostring(ovPct) + "%", f_tc(ovDir))
 
 // ============================================================================
-//  MODULE 7 · PROJECTION  (likely path — ESTIMATE, NOT a prediction)
-//  A thin curve from the last bar projecting where price drifts IF the recent
-//  trend continues — linear-regression slope, gently decayed so it flattens over
-//  time (trends fade). This is an EXTRAPOLATION, not a forecast. Markets are not
-//  predictable; use it only as a visual bias guide.
+//  MODULE 7 · PROJECTION  (structure-aware likely path — ESTIMATE, not a forecast)
+//  Combines: the MTF bias (module 6, all higher TFs), recent SWING STRUCTURE over
+//  the lookback (weeks/months high & low), nearest ROUND NUMBERS, and volatility
+//  (ATR). From these it estimates a realistic scenario and draws a pullback-then-
+//  move path to a structural target, with a probability %.
+//
+//  Scenarios: Bullish continuation, Pullback → rise, Bearish / dump, Pullback →
+//  fall, or Range. (Gaps can't be predicted, so they're not projected.)
+//  HONEST: still an extrapolation of current conditions, NOT a guarantee. Use as
+//  a bias guide; real price will deviate, especially around news.
 // ============================================================================
 var G7 = "7 · Projection"
-projOn    = input.bool(true, "Enable projection curve", group = G7,
-     tooltip = "Single master switch. NOTE: an estimate from recent momentum, NOT a real prediction of the future.")
-projLen   = input.int(50, "Momentum length (bars)", minval = 5, group = G7,
-     tooltip = "Bars of recent price used to measure trend slope. BEST 50. Shorter = reacts faster / noisier.")
-projBars  = input.int(20, "Project forward (bars)", minval = 1, maxval = 100, group = G7,
-     tooltip = "How far ahead to draw. In bars of the current chart TF (e.g. 20 bars on a 4H chart ≈ a few days).")
-projDecay = input.float(0.96, "Trend fade", minval = 0.5, maxval = 1.0, step = 0.01, group = G7,
-     tooltip = "How fast the projected trend flattens. 1 = straight line, <1 = curves toward flat. 0.96 = realistic fade.")
-projCol   = input.color(color.new(color.aqua, 0), "Curve color", group = G7)
+projOn      = input.bool(true, "Enable projection", group = G7,
+     tooltip = "Single master switch. NOTE: a structure-based ESTIMATE, not a real prediction of the future.")
+projStruct  = input.int(120, "Structure lookback (bars)", minval = 20, group = G7,
+     tooltip = "History it studies for swings & range (recent weeks/months). ~120 = ~3 weeks on 4H, ~6 months on Daily.")
+projBars    = input.int(24, "Project forward (bars)", minval = 4, maxval = 100, group = G7,
+     tooltip = "How far ahead to draw the path. In bars of the current chart TF.")
+projShowTgt = input.bool(true, "Show target line + scenario", group = G7)
+projUp      = input.color(#26a69a, "Up path", inline = "pj", group = G7)
+projDn      = input.color(#ef5350, "Down path", inline = "pj", group = G7)
 
-projSlope = ta.linreg(close, projLen, 0) - ta.linreg(close, projLen, 1)   // per-bar regression slope
+// structure + volatility inputs to the model
+atrP     = ta.atr(14)
+hiL      = ta.highest(high, projStruct)                                  // structural resistance
+loL      = ta.lowest(low,  projStruct)                                   // structural support
+locSlope = ta.linreg(close, 20, 0) - ta.linreg(close, 20, 1)
+pBias    = ovDir != 0 ? ovDir : (locSlope > 0 ? 1 : locSlope < 0 ? -1 : 0)   // MTF bias, else local
+pConv    = ovDir != 0 ? ovPct : 30
 
 var polyline projPL  = na
 var label    projLbl = na
+var line     projTgt = na
 if barstate.islast
     if not na(projPL)
         polyline.delete(projPL)
     if not na(projLbl)
         label.delete(projLbl)
-    if projOn
+    if not na(projTgt)
+        line.delete(projTgt)
+    if projOn and rnStep > 0
+        // nearest round numbers around price
+        rUp = math.ceil(close / rnStep) * rnStep
+        rDn = math.floor(close / rnStep) * rnStep
+        rUp := rUp <= close ? rUp + rnStep : rUp
+        rDn := rDn >= close ? rDn - rnStep : rDn
+
+        // expected travel over the horizon, scaled by conviction
+        expMove = atrP * math.sqrt(projBars) * (0.5 + pConv / 100.0)
+        rawT    = close + pBias * expMove
+        tgt     = math.round(rawT / rnStep) * rnStep                      // snap target to a round level
+        pbDepth = atrP * (1.6 - pConv / 100.0)                            // deeper pullback when conviction is low
+        float pbk = close
+        string scn = "Range / no clear path"
+        color  pcol = color.gray
+        if pBias > 0
+            if hiL > close
+                tgt := math.min(tgt, hiL)                                 // don't project beyond structural high
+            if tgt <= close
+                tgt := rUp
+            pbk := math.max(close - pbDepth, loL)
+            scn := pConv >= 65 ? "Bullish continuation ↑" : pConv >= 40 ? "Pullback → rise" : "Weak up / choppy"
+            pcol := projUp
+        else if pBias < 0
+            if loL < close
+                tgt := math.max(tgt, loL)
+            if tgt >= close
+                tgt := rDn
+            pbk := math.min(close + pbDepth, hiL)
+            scn := pConv >= 65 ? "Bearish / dump ↓" : pConv >= 40 ? "Pullback → fall" : "Weak down / choppy"
+            pcol := projDn
+        else
+            tgt := math.round(close / rnStep) * rnStep
+            pbk := close
+
+        // path: now -> pullback -> mid -> target (smooth curve)
         pts = array.new<chart.point>()
         array.push(pts, chart.point.from_index(bar_index, close))
-        cum = 0.0
-        for k = 1 to projBars
-            cum := cum + projSlope * math.pow(projDecay, k)              // decaying step -> curve
-            array.push(pts, chart.point.from_index(bar_index + k, close + cum))
-        projPL := polyline.new(pts, curved = true, line_color = projCol, line_width = 1)
-        projLbl := label.new(bar_index + projBars, close + cum, "~ projection (est.)", xloc = xloc.bar_index,
-             style = label.style_label_left, color = color.new(projCol, 80), textcolor = projCol, size = size.tiny)
+        array.push(pts, chart.point.from_index(bar_index + int(projBars * 0.33), pbk))
+        array.push(pts, chart.point.from_index(bar_index + int(projBars * 0.66), pbk + (tgt - pbk) * 0.6))
+        array.push(pts, chart.point.from_index(bar_index + projBars, tgt))
+        projPL := polyline.new(pts, curved = true, line_color = pcol, line_width = 1)
+
+        if projShowTgt
+            projTgt := line.new(bar_index, tgt, bar_index + projBars, tgt, xloc = xloc.bar_index,
+                 color = color.new(pcol, 50), style = line.style_dotted, width = 1)
+            projLbl := label.new(bar_index + projBars, tgt,
+                 scn + "  ~" + str.tostring(pConv) + "%\n→ " + str.tostring(tgt, format.mintick), xloc = xloc.bar_index,
+                 style = label.style_label_left, color = color.new(pcol, 15), textcolor = color.white, size = tSize)

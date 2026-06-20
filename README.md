@@ -206,22 +206,31 @@ probability**. **Single master switch:** *Enable MTF trend dashboard*.
 | **Table position** | corner placement | Top Right |
 | **Bull / Bear / Neutral** | colors | — |
 
-## Module 7 · Projection (estimate)
+## Module 7 · Projection (structure-aware estimate)
 
-A thin curve from the last bar showing where price **drifts if the recent trend continues**.
-**Single master switch:** *Enable projection curve*.
+A thin **pullback-then-move** path projecting the *likely* scenario, built from real context
+rather than a plain trend line. **Single master switch:** *Enable projection*.
 
-> **Honest note:** this is an **extrapolation**, *not* a prediction. It takes the recent
-> linear-regression slope and decays it so the curve flattens over time (trends fade). No
-> indicator can forecast price — use it only as a visual bias guide.
+**What it considers:**
+- **MTF bias** (module 6 — all higher TFs) → direction + conviction %
+- **Swing structure** over the lookback (recent weeks/months high & low) → realistic targets
+- **Round numbers** → snaps the target to a clean level
+- **Volatility (ATR)** → how far price likely travels, and how deep the pullback is
+
+**Scenarios it labels:** Bullish continuation · Pullback → rise · Bearish / dump ·
+Pullback → fall · Range. (Gaps aren't predictable, so they're not projected.) It draws the
+curve, a dotted **target line**, and a label with the scenario, **probability %**, and target price.
 
 | Input | What it does | Best value |
 |---|---|---|
-| **Enable projection curve** | master on/off | on |
-| **Momentum length** | bars of recent price for the slope | 50 |
-| **Project forward** | how many bars ahead to draw | 20 (≈ a few days, TF-dependent) |
-| **Trend fade** | 1 = straight line, <1 = curves flat | 0.96 |
-| **Curve color** | styling | — |
+| **Enable projection** | master on/off | on |
+| **Structure lookback** | history studied for swings/range | 120 (~weeks–months) |
+| **Project forward** | bars ahead to draw | 24 |
+| **Show target + scenario** | dotted target line & label | on |
+| **Up / Down path** | path colors by direction | — |
+
+> **Honest note:** still an **estimate** from current structure + momentum, *not* a guarantee.
+> Real price deviates — especially around news. Use it as a bias guide, not a target to trade blindly.
 
 ---
 
