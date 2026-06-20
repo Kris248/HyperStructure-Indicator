@@ -45,6 +45,8 @@ rnSpacing= input.float(50, "Spacing", minval = 0.0001, group = G1,
      tooltip = "Distance between minor levels.\n• Forex (Pips): 500 = 50-pip grid (1.3000, 1.3050). 1000 = 100-pip (1.3000, 1.3100).\n• GOLD (Price): 5 or 10 -> 2000, 2010 ...\n• Indices (Price): 50 or 100.")
 rnManPip = input.float(0.0, "Manual pip (Pips mode, 0 = auto)", minval = 0, group = G1,
      tooltip = "Only used in Pips mode. 0 = auto (forex 0.0001, JPY 0.01). Leave at 0 for normal forex.")
+rnAuto   = input.bool(true, "Auto-fit gold / indices / crypto", group = G1,
+     tooltip = "ON: on non-forex symbols (gold, silver, indices, crypto) the round step is picked AUTOMATICALLY (e.g. gold = $50, US30 = 500) so the lines are sensible without you changing anything. Forex keeps your pip Spacing.")
 rnSide   = input.int(14, "Levels each side of price", minval = 1, maxval = 240, group = G1,
      tooltip = "Lines above and below price. BEST 10-16 — keeps the grid clean.")
 rnMajorN = input.int(2, "Major every N levels", minval = 0, group = G1,
@@ -52,7 +54,7 @@ rnMajorN = input.int(2, "Major every N levels", minval = 0, group = G1,
 rnMinCol = input.color(color.new(#2962ff, 60), "Minor", inline = "rmn", group = G1)
 rnMinWid = input.int(1, "w", minval = 1, maxval = 4, inline = "rmn", group = G1)
 rnMinSty = input.string("Dashed", "", options = ["Solid", "Dashed", "Dotted"], inline = "rmn", group = G1)
-rnMajCol = input.color(color.new(#2962ff, 0), "Major", inline = "rmj", group = G1)
+rnMajCol = input.color(color.new(#2962ff, 60), "Major", inline = "rmj", group = G1)
 rnMajWid = input.int(2, "w", minval = 1, maxval = 5, inline = "rmj", group = G1)
 rnMajSty = input.string("Solid", "", options = ["Solid", "Dashed", "Dotted"], inline = "rmj", group = G1)
 rnLabMode= input.string("Major", "Labels", options = ["None", "Major", "All"], group = G1,
@@ -63,10 +65,21 @@ rnLabOff = input.int(25, "Label offset (bars)", minval = 0, maxval = 40, group =
 f_lstyle(s) => s == "Solid" ? line.style_solid : s == "Dotted" ? line.style_dotted : line.style_dashed
 f_lsize(s)  => s == "Tiny" ? size.tiny : s == "Normal" ? size.normal : size.small
 
-isJPY   = str.contains(str.upper(syminfo.currency), "JPY") or str.contains(str.upper(syminfo.tickerid), "JPY")
-autoPip = syminfo.type == "forex" ? (isJPY ? 0.01 : 0.0001) : syminfo.mintick
-rnPip   = rnManPip > 0 ? rnManPip : autoPip
-rnStep  = rnMode == "Price" ? rnSpacing : rnSpacing * rnPip       // price distance between minor levels
+// --- instrument detection (shared by Round Numbers + DBox) ---
+symU     = str.upper(syminfo.ticker)
+isJPY    = str.contains(str.upper(syminfo.currency), "JPY") or str.contains(symU, "JPY")
+isGold   = str.contains(symU, "XAU") or str.contains(symU, "GOLD")
+isSilver = str.contains(symU, "XAG") or str.contains(symU, "SILVER")
+isFx     = syminfo.type == "forex"
+// smart pip: real pips for forex, $0.10 gold, $0.01 silver, else mintick (= points)
+autoPip  = isGold ? 0.1 : isSilver ? 0.01 : isFx ? (isJPY ? 0.01 : 0.0001) : syminfo.mintick
+
+// round-number step: forex uses the pip Spacing; non-forex auto-fits to a clean
+// price step (gold $50, silver $1, indices/crypto scaled by price) so they "just work".
+rnPip      = rnManPip > 0 ? rnManPip : autoPip
+manualStep = rnMode == "Price" ? rnSpacing : rnSpacing * rnPip
+autoStep   = isGold ? 50.0 : isSilver ? 1.0 : close >= 50000 ? 1000.0 : close >= 10000 ? 500.0 : close >= 1000 ? 100.0 : close >= 100 ? 10.0 : manualStep
+rnStep     = (rnAuto and not isFx) ? autoStep : manualStep   // price distance between minor levels
 
 var line[]  rnLines = array.new<line>()
 var label[] rnLabs  = array.new<label>()

@@ -22,27 +22,32 @@ lines every Nth level (e.g. the 1000-pip levels). Works on any instrument.
 | Input | What it does | Best value |
 |---|---|---|
 | **Show round numbers** | module on/off | on |
-| **Spacing mode** | `Pips` (forex) or `Price` (gold/indices/crypto) | Pips for FX |
-| **Spacing** | distance between minor levels | 500 or 1000 (FX) |
+| **Spacing mode** | `Pips` (forex) or `Price` (manual non-forex) | Pips for FX |
+| **Spacing** | distance between minor levels (forex pips) | 50 |
 | **Manual pip** | override auto pip (Pips mode only) | 0 = auto |
+| **Auto-fit gold/indices/crypto** | auto round step on non-forex (ignores Spacing) | **on** |
 | **Levels each side** | lines above/below price | 10–16 |
 | **Major every N** | every Nth line bold | 2 |
 | **Minor / Major** | color · width · style (solid/dashed/dotted) | minor dashed, major solid |
 | **Labels** | None / Major / All | Major (clean) |
 | **Label size / offset** | label sizing & right-shift | Small / 8 |
 
-### How to set it per instrument
+### Per instrument (with Auto-fit ON — the default)
 
-| Instrument | Mode | Spacing | Result |
-|---|---|---|---|
-| EURUSD, GBPUSD | Pips | 500 | 1.3000, 1.3050, 1.3100 … (1000-levels bold) |
-| EURUSD (wider) | Pips | 1000 | 1.3000, 1.3100, 1.3200 … |
-| USDJPY | Pips | 500 | 145.00, 145.50 … (auto JPY pip) |
-| XAUUSD (gold) | Price | 10 | 2000, 2010, 2020 … |
-| US30 / NAS100 | Price | 100 | 39000, 39100 … |
+| Instrument | Handling | Result |
+|---|---|---|
+| EURUSD, GBPUSD | Pips × your Spacing (50) | 1.3000, 1.3050, 1.3100 … |
+| USDJPY | Pips (auto JPY pip) | 145.00, 145.50 … |
+| **XAUUSD (gold)** | **auto $50 step** | 2600, 2650, 2700 … (no manual change) |
+| XAGUSD (silver) | auto $1 | 30, 31, 32 … |
+| US30 / NAS100 | auto 500 | 39000, 39500 … |
+| BTCUSD | auto 1000 | 60000, 61000 … |
 
-**Notes:** levels are anchored to exact round multiples, redraw on the last bar (no
-clutter build-up), and span the full chart width.
+**Auto-fit** also fixes the **DBox pips** on these symbols: a smart pip (gold = $0.10) means
+a $260.66 weekly move shows `~2607 pips · 260.660` instead of the broken `260660`.
+
+**Notes:** levels are anchored to exact round multiples, redraw on the last bar, and span the
+full chart width. Turn Auto-fit off if you want full manual control via Spacing mode.
 
 ---
 
