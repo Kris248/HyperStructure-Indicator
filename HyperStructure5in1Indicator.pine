@@ -1,21 +1,20 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 //
-//  HYPERSTRUCTURE  ·  7-IN-1 INDICATOR
+//  HYPERSTRUCTURE  ·  5-IN-1 INDICATOR
 //  A clean, minimal, modular suite — features added one at a time.
 //  Every module is toggleable; every input has a recommended ("BEST") value.
 //
 //  Modules:
 //    1 · Round Number Levels      (active)
 //    2 · Moving Averages (EMA)    (active)
-//    3 · Validation Candles       (active)
 //    4 · DBox (period range)      (active)
 //    5 · News Danger Zones        (active)
 //    6 · MTF Trend Dashboard      (active)
-//    7 · Projection (estimate)    (active)
+//  (Validation Candles and Projection removed.)
 //
 //@version=6
-indicator("HyperStructure7in1Indicator", shorttitle = "HS 7in1", overlay = true,
-     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 100, max_polylines_count = 10)
+indicator("HyperStructure5in1Indicator", shorttitle = "HS 5in1", overlay = true,
+     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 100)
 
 // ============================================================================
 //  GLOBAL DISPLAY
@@ -205,89 +204,6 @@ if barstate.islast and emaOn and maLabel
     f_maTag(maShow3, ma3, maCol3, maType + str.tostring(maLen3))
 
 // ============================================================================
-//  MODULE 3 · VALIDATION CANDLES
-//  Logic: a REFERENCE candle's HIGH and LOW are the levels to beat.
-//   • Candles that stay INSIDE that range are INVALIDATED (greyed).
-//   • When a later candle closes beyond the high (bull) or low (bear) with a
-//     SOLID body — a real breakout, not a wick — that candle is VALIDATED and
-//     becomes the NEW reference; the chain continues forward.
-//   • The reference is STORED until broken, so the breakout can land on the very
-//     next candle OR 'n' candles later (after n inside/invalidated candles).
-//   • A live box marks the active reference and updates ONLY after a candle
-//     CLOSES — never intrabar (no repaint, no flicker).
-// ============================================================================
-var G3 = "3 · Validation Candles"
-valOn      = input.bool(true, "Enable validation candles", group = G3,
-     tooltip = "Single master switch for this module.")
-valMinBody = input.float(0.6, "Solid breakout: min body (× range)", minval = 0.1, maxval = 1.0, step = 0.05, group = G3,
-     tooltip = "The breaking candle must be SOLID — its body at least this share of its range. BEST 0.6. 0.7+ = only very strong breakouts validate, 0.5 = looser.")
-valBuffer  = input.float(0.0, "Break buffer (× ATR, 0 = off)", minval = 0.0, step = 0.05, group = G3,
-     tooltip = "Optional anti-fakeout: close must clear the level by this × ATR. 0 = pure body-close break. Try 0.10 on noisy pairs.")
-valShowInv = input.bool(true, "Color invalidated (inside) candles", group = G3,
-     tooltip = "Greys the candles that stay inside the reference (not yet validated).")
-valBoxOn   = input.bool(true, "Live reference box (updates on close)", group = G3,
-     tooltip = "Box on the active reference candle. Moves/updates ONLY after a candle closes — never intrabar.")
-cValBull = input.color(#26a69a, "Validated bull", inline = "val1", group = G3)
-cValBear = input.color(#ef5350, "Validated bear", inline = "val1", group = G3)
-cValInv  = input.color(color.new(color.gray, 55), "Invalidated", inline = "val2", group = G3)
-cValBox  = input.color(#f7a600, "Reference box", inline = "val2", group = G3)
-
-valAtr = ta.atr(14)
-var float vHi  = na                 // stored reference high
-var float vLo  = na                 // stored reference low
-var int   vBar = na                 // bar_index of the reference candle
-bool  vBull = false                 // this candle validated bullish
-bool  vBear = false                 // this candle validated bearish
-bool  vInv  = false                 // this candle is inside / invalidated
-color vCol  = na
-if valOn and barstate.isconfirmed
-    if na(vHi)
-        // seed the chain on the first candle
-        vHi := high
-        vLo := low
-        vBar := bar_index
-    else
-        bodyPct = (high - low) > 0 ? math.abs(close - open) / (high - low) : 0.0
-        solid   = bodyPct >= valMinBody                 // "very large body" = solid breakout
-        buf     = valBuffer * valAtr
-        bU = solid and close > vHi + buf                // solid body closes ABOVE the stored high
-        bD = solid and close < vLo - buf                // solid body closes BELOW the stored low
-        if bU and bD                                    // outside bar -> resolve by close vs mid
-            if close >= (vHi + vLo) / 2
-                bD := false
-            else
-                bU := false
-        if bU
-            vBull := true
-            vHi := high
-            vLo := low
-            vBar := bar_index
-        else if bD
-            vBear := true
-            vHi := high
-            vLo := low
-            vBar := bar_index
-        else
-            vInv := true                                // stayed inside -> invalidated
-    vCol := vBull ? cValBull : vBear ? cValBear : (valShowInv and vInv) ? cValInv : na
-barcolor(vCol, title = "Validation status")
-
-// Live reference box — created / updated only on closed candles (never intrabar).
-var box vBox = na
-if valOn and valBoxOn and barstate.isconfirmed and not na(vHi)
-    if na(vBox)
-        vBox := box.new(vBar, vHi, bar_index + 1, vLo, xloc = xloc.bar_index,
-             border_color = color.new(cValBox, 0), border_width = 1, bgcolor = color.new(cValBox, 90))
-    else
-        box.set_left(vBox, vBar)
-        box.set_top(vBox, vHi)
-        box.set_bottom(vBox, vLo)
-        box.set_right(vBox, bar_index + 1)
-
-alertcondition(vBull, "Validated bullish breakout", "A solid candle closed above the stored reference high")
-alertcondition(vBear, "Validated bearish breakout", "A solid candle closed below the stored reference low")
-
-// ============================================================================
 //  MODULE 4 · DBox  (period range box)
 //  Boxes the FULL high-low range of each Day / Week / Month — the whole distance
 //  price travelled in that period — anchored to a chosen timezone (IST default).
@@ -298,36 +214,35 @@ alertcondition(vBear, "Validated bearish breakout", "A solid candle closed below
 var G4 = "4 · DBox (range)"
 dboxOn = input.bool(true, "Enable DBox", group = G4,
      tooltip = "Single master switch. Boxes the full high-low range of each Day / Week / Month.")
-dbTf   = input.string("Weekly", "Time frame", options = ["Daily", "Weekly", "Monthly"], group = G4,
-     tooltip = "Period each box covers. 'DBox' = Daily by default; switch to Weekly / Monthly for the bigger picture.")
+dbTf   = input.string("Auto", "Time frame", options = ["Auto", "Daily", "Weekly", "Monthly"], group = G4,
+     tooltip = "AUTO (default): follows your chart TF — 15m → Daily range, 1H–2H → Weekly, 4H & higher → Monthly. Or force a fixed period.")
 dbTz   = input.string("Asia/Kolkata", "Timezone (period anchor)", group = G4,
      tooltip = "Periods start at THIS timezone's midnight / week / month. Default IST (Asia/Kolkata). e.g. 'America/New_York', 'UTC'.")
 dbMax  = input.int(16, "History (periods)", minval = 1, maxval = 60, group = G4,
      tooltip = "How many past boxes to keep on the chart. BEST 4-8.")
 dbVL   = input.bool(true, "Show vertical line", group = G4)
 dbBox  = input.bool(true, "Show box", group = G4)
-dbShowMove = input.bool(true, "Show price movement", group = G4,
-     tooltip = "Labels how much price moved — pips + price difference + direction — on every box.")
 dbLineCol  = input.color(color.new(color.gray, 0),    "Line color", group = G4)
 dbFillBull = input.color(color.new(color.green, 85),  "Fill bull color", group = G4)
 dbFillBear = input.color(color.new(color.red, 85),    "Fill bear color", group = G4)
-dbPosCol   = input.color(color.new(color.green, 0),   "Positive color", group = G4)
-dbNegCol   = input.color(color.new(color.red, 0),     "Negative color", group = G4)
+
+// auto-select the period from the chart timeframe (or use the forced choice)
+// 15m & below -> Daily,  1H–2H -> Weekly,  4H & above -> Monthly
+autoTf  = timeframe.in_seconds() <= 900 ? "Daily" : timeframe.in_seconds() <= 7200 ? "Weekly" : "Monthly"
+dbTfEff = dbTf == "Auto" ? autoTf : dbTf
 
 // period id in the chosen timezone -> changes on each new Day / Week / Month
 dbY  = year(time, dbTz)
 dbMo = month(time, dbTz)
 dbD  = dayofmonth(time, dbTz)
 dbW  = weekofyear(time, dbTz)
-dbId = dbTf == "Weekly" ? dbY * 100 + dbW : dbTf == "Monthly" ? dbY * 100 + dbMo : dbY * 10000 + dbMo * 100 + dbD
+dbId = dbTfEff == "Weekly" ? dbY * 100 + dbW : dbTfEff == "Monthly" ? dbY * 100 + dbMo : dbY * 10000 + dbMo * 100 + dbD
 
 var float pHigh = na
 var float pLow  = na
 var float pOpen = na
-var int   pStart= na
 var box[]   dBox  = array.new<box>()
 var line[]  dVL   = array.new<line>()
-var label[] dMove = array.new<label>()     // one movement label per box
 
 if dboxOn and barstate.isconfirmed
     startNew = na(pHigh) or dbId != dbId[1]
@@ -336,7 +251,6 @@ if dboxOn and barstate.isconfirmed
         pHigh := high
         pLow  := low
         pOpen := open
-        pStart:= bar_index
         if dbBox
             b = box.new(bar_index, high, bar_index, low, xloc = xloc.bar_index,
                  border_color = dbLineCol, border_width = 1, bgcolor = dbFillBull)
@@ -349,12 +263,6 @@ if dboxOn and barstate.isconfirmed
             array.push(dVL, v)
             if array.size(dVL) > dbMax
                 line.delete(array.shift(dVL))
-        if dbShowMove
-            ml = label.new(bar_index, high, "", xloc = xloc.bar_index, style = label.style_label_down,
-                 color = color.new(color.black, 100), size = size.small)
-            array.push(dMove, ml)
-            if array.size(dMove) > dbMax
-                label.delete(array.shift(dMove))
     else
         pHigh := math.max(pHigh, high)
         pLow  := math.min(pLow,  low)
@@ -367,16 +275,6 @@ if dboxOn and barstate.isconfirmed
         box.set_bottom(cb, pLow)
         box.set_right(cb, bar_index)
         box.set_bgcolor(cb, pBull ? dbFillBull : dbFillBear)
-    // price-movement label — the CURRENT box's label is refreshed each bar; once a
-    // new period starts it keeps its final value. Shows pips + price difference.
-    if dbShowMove and array.size(dMove) > 0
-        movePips = autoPip > 0 ? (pHigh - pLow) / autoPip : 0.0
-        netUp    = close >= pOpen                       // period positive vs negative
-        midX     = int((pStart + bar_index) / 2)
-        cm = array.get(dMove, array.size(dMove) - 1)
-        label.set_xy(cm, midX, pHigh)
-        label.set_text(cm, str.tostring(math.round(movePips)) + " pips  ·  " + str.tostring(pHigh - pLow, format.mintick) + (netUp ? "  ▲" : "  ▼"))
-        label.set_textcolor(cm, netUp ? dbPosCol : dbNegCol)
 
 // ============================================================================
 //  MODULE 5 · NEWS DANGER ZONES  (manual red-folder calendar, auto-filtered)
@@ -385,7 +283,7 @@ if dboxOn and barstate.isconfirmed
 //  events (a ~1-min weekly copy from ForexFactory). Each event carries its CURRENCY
 //  code, and "Only this chart's currencies" auto-shows just the events that affect
 //  the symbol you're on — so you keep ONE list for all charts.
-//  Each shown event fills a red "RESTRICTED AREA" box over the N hours BEFORE it
+//  Each shown event fills a red "NO TRADE ZONE" box over the N hours BEFORE it
 //  (default 5h) + a vertical line at the event — so you don't enter before red news.
 //  Format:  YYYY-MM-DD HH:MM CUR note ,  comma-separated.  Time may be 24h or am/pm.
 //    e.g.  2026-06-22 18:00 CAD CPI, 2026-06-25 6:00pm USD PCE
@@ -405,7 +303,7 @@ newsAfter  = input.float(1, "Hours after", minval = 0, step = 0.5, group = G5,
      tooltip = "Optional extra window AFTER the event (post-news spike). 0 = none.")
 newsCol    = input.color(color.red, "Restricted color", group = G5)
 newsTransp = input.int(80, "Zone transparency", minval = 0, maxval = 100, group = G5,
-     tooltip = "Fill opacity of the restricted box. Lower = deeper/stronger color, higher = lighter. 80 = light-deep.")
+     tooltip = "Fill opacity of the no-trade box. Lower = deeper/stronger color, higher = lighter. 80 = light-deep.")
 
 // --- parse the pasted list ONCE into timestamps + currency + note ---
 f_parseNews(lst, tz) =>
@@ -506,21 +404,22 @@ if barstate.islast
     if newsOn and array.size(newsTs) > 0
         for i = 0 to array.size(newsTs) - 1
             cc = array.get(newsCur, i)
-            if f_relevant(cc)
-                ev     = array.get(newsTs, i)
+            ev = array.get(newsTs, i)
+            // only draw events whose window hasn't already fully passed (hide old news)
+            if f_relevant(cc) and ev + afterMs >= timenow
                 startT = int(ev - beforeMs)
                 rightT = int(ev + afterMs)
-                // filled vertical restricted zone from N hours before up to the event
+                // filled vertical no-trade zone from N hours before up to the event
                 array.push(nBx, box.new(startT, zoneHi, rightT, zoneLo, xloc = xloc.bar_time,
                      border_color = color.new(newsCol, 60), bgcolor = color.new(newsCol, newsTransp)))
                 // vertical line at the event time
                 array.push(nLn, line.new(ev, zoneLo, ev, zoneHi, xloc = xloc.bar_time, extend = extend.both, color = newsCol, width = 2))
                 nt  = array.get(newsNt, i)
-                txt = "⛔ RESTRICTED AREA" + (str.length(cc) > 0 ? " · " + cc : "") + (str.length(nt) > 0 ? "\n" + nt : "")
+                txt = "⛔ NO TRADE ZONE" + (str.length(cc) > 0 ? " · " + cc : "") + (str.length(nt) > 0 ? "\n" + nt : "")
                 array.push(nLb, label.new(ev, zoneHi, txt, xloc = xloc.bar_time,
                      style = label.style_label_down, color = newsCol, textcolor = color.white, size = tSize))
 
-alertcondition(inZone, "In restricted news window", "Inside a red-folder restricted window — do not take entries")
+alertcondition(inZone, "In no-trade news window", "Inside a red-folder no-trade window — do not take entries")
 
 // ============================================================================
 //  MODULE 6 · MULTI-TIMEFRAME TREND  (top-right dashboard)
@@ -575,93 +474,4 @@ if barstate.islast and trendOn
     f_trow(5, "Daily", f_tt(tD),  f_tc(tD))
     f_trow(6, "Overall", f_tt(ovDir) + "  " + str.tostring(ovPct) + "%", f_tc(ovDir))
 
-// ============================================================================
-//  MODULE 7 · PROJECTION  (structure-aware likely path — ESTIMATE, not a forecast)
-//  Combines: the MTF bias (module 6, all higher TFs), recent SWING STRUCTURE over
-//  the lookback (weeks/months high & low), nearest ROUND NUMBERS, and volatility
-//  (ATR). From these it estimates a realistic scenario and draws a pullback-then-
-//  move path to a structural target, with a probability %.
-//
-//  Scenarios: Bullish continuation, Pullback → rise, Bearish / dump, Pullback →
-//  fall, or Range. (Gaps can't be predicted, so they're not projected.)
-//  HONEST: still an extrapolation of current conditions, NOT a guarantee. Use as
-//  a bias guide; real price will deviate, especially around news.
-// ============================================================================
-var G7 = "7 · Projection"
-projOn      = input.bool(true, "Enable projection", group = G7,
-     tooltip = "Single master switch. NOTE: a structure-based ESTIMATE, not a real prediction of the future.")
-projStruct  = input.int(120, "Structure lookback (bars)", minval = 20, group = G7,
-     tooltip = "History it studies for swings & range (recent weeks/months). ~120 = ~3 weeks on 4H, ~6 months on Daily.")
-projBars    = input.int(24, "Project forward (bars)", minval = 4, maxval = 100, group = G7,
-     tooltip = "How far ahead to draw the path. In bars of the current chart TF.")
-projShowTgt = input.bool(true, "Show target line + scenario", group = G7)
-projUp      = input.color(#26a69a, "Up path", inline = "pj", group = G7)
-projDn      = input.color(#ef5350, "Down path", inline = "pj", group = G7)
-
-// structure + volatility inputs to the model
-atrP     = ta.atr(14)
-hiL      = ta.highest(high, projStruct)                                  // structural resistance
-loL      = ta.lowest(low,  projStruct)                                   // structural support
-locSlope = ta.linreg(close, 20, 0) - ta.linreg(close, 20, 1)
-pBias    = ovDir != 0 ? ovDir : (locSlope > 0 ? 1 : locSlope < 0 ? -1 : 0)   // MTF bias, else local
-pConv    = ovDir != 0 ? ovPct : 30
-
-var polyline projPL  = na
-var label    projLbl = na
-var line     projTgt = na
-if barstate.islast
-    if not na(projPL)
-        polyline.delete(projPL)
-    if not na(projLbl)
-        label.delete(projLbl)
-    if not na(projTgt)
-        line.delete(projTgt)
-    if projOn and rnStep > 0
-        // nearest round numbers around price
-        rUp = math.ceil(close / rnStep) * rnStep
-        rDn = math.floor(close / rnStep) * rnStep
-        rUp := rUp <= close ? rUp + rnStep : rUp
-        rDn := rDn >= close ? rDn - rnStep : rDn
-
-        // expected travel over the horizon, scaled by conviction
-        expMove = atrP * math.sqrt(projBars) * (0.5 + pConv / 100.0)
-        rawT    = close + pBias * expMove
-        tgt     = math.round(rawT / rnStep) * rnStep                      // snap target to a round level
-        pbDepth = atrP * (1.6 - pConv / 100.0)                            // deeper pullback when conviction is low
-        float pbk = close
-        string scn = "Range / no clear path"
-        color  pcol = color.gray
-        if pBias > 0
-            if hiL > close
-                tgt := math.min(tgt, hiL)                                 // don't project beyond structural high
-            if tgt <= close
-                tgt := rUp
-            pbk := math.max(close - pbDepth, loL)
-            scn := pConv >= 65 ? "Bullish continuation ↑" : pConv >= 40 ? "Pullback → rise" : "Weak up / choppy"
-            pcol := projUp
-        else if pBias < 0
-            if loL < close
-                tgt := math.max(tgt, loL)
-            if tgt >= close
-                tgt := rDn
-            pbk := math.min(close + pbDepth, hiL)
-            scn := pConv >= 65 ? "Bearish / dump ↓" : pConv >= 40 ? "Pullback → fall" : "Weak down / choppy"
-            pcol := projDn
-        else
-            tgt := math.round(close / rnStep) * rnStep
-            pbk := close
-
-        // path: now -> pullback -> mid -> target (smooth curve)
-        pts = array.new<chart.point>()
-        array.push(pts, chart.point.from_index(bar_index, close))
-        array.push(pts, chart.point.from_index(bar_index + int(projBars * 0.33), pbk))
-        array.push(pts, chart.point.from_index(bar_index + int(projBars * 0.66), pbk + (tgt - pbk) * 0.6))
-        array.push(pts, chart.point.from_index(bar_index + projBars, tgt))
-        projPL := polyline.new(pts, curved = true, line_color = pcol, line_width = 1)
-
-        if projShowTgt
-            projTgt := line.new(bar_index, tgt, bar_index + projBars, tgt, xloc = xloc.bar_index,
-                 color = color.new(pcol, 50), style = line.style_dotted, width = 1)
-            projLbl := label.new(bar_index + projBars, tgt,
-                 scn + "  ~" + str.tostring(pConv) + "%\n→ " + str.tostring(tgt, format.mintick), xloc = xloc.bar_index,
-                 style = label.style_label_left, color = color.new(pcol, 15), textcolor = color.white, size = tSize)
+// (Projection module removed)

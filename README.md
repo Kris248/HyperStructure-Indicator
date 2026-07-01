@@ -1,14 +1,12 @@
-# HyperStructure Indicator (7 modules)
+# HyperStructure 5-in-1 Indicator
 
-A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.pine` — built as
-modules added one at a time. Every module is fully toggleable, non-repainting where it
-matters, and every input has a recommended ("BEST") value in its tooltip.
+A clean, minimalistic Pine Script **v6** suite — `HyperStructure5in1Indicator.pine` — every
+module fully toggleable, non-repainting where it matters, and every input has a recommended
+("BEST") value in its tooltip.
 
-**Modules:** 1 · Round Numbers · 2 · Moving Averages · 3 · Validation Candles · 4 · DBox ·
-5 · News Danger Zones · 6 · MTF Trend · 7 · Projection — **all active**.
+**Modules:** 1 · Round Numbers · 2 · Moving Averages · 4 · DBox ·
+5 · News Danger Zones · 6 · MTF Trend — **5 active**.
 Each module has a **single master on/off switch** at the top of its settings group.
-
-*(File/indicator name still says `5in1` for compatibility — rename anytime.)*
 
 ---
 
@@ -85,38 +83,6 @@ For low-lag entries switch the type to **HMA** or **VWZL**.
 
 ---
 
-## Module 3 · Validation Candles
-
-A market-structure chain. A **reference candle's** high and low are the levels to beat.
-**Single master switch:** *Enable validation candles*.
-
-### Logic
-
-1. The reference candle's **high / low** define the active range.
-2. Candles that stay **inside** that range are **invalidated** (greyed).
-3. When a later candle **closes beyond** the high (bull) or low (bear) with a **solid body**
-   (a real breakout, not a wick), it is **validated** and becomes the **new reference**.
-4. The reference is **stored until broken** — the breakout can be the next candle or land
-   `n` candles later, after `n` inside/invalidated candles. Either way the breaker is colored.
-5. A **live box** marks the active reference and updates **only after a candle closes**
-   (never intrabar → no repaint, no flicker).
-
-### Settings
-
-| Input | What it does | Best value |
-|---|---|---|
-| **Enable validation candles** | master on/off | on |
-| **Solid breakout: min body** | how solid the breaking candle must be (body ÷ range) | 0.6 (strict 0.7) |
-| **Break buffer (× ATR)** | optional anti-fakeout margin past the level | 0 (0.10 on noisy pairs) |
-| **Color invalidated candles** | grey the inside candles | on |
-| **Live reference box** | box on the active reference, updates on close | on |
-| **Colors** | validated bull / bear / invalidated / box | — |
-
-**Colors:** validated bull = teal, validated bear = red, invalidated = grey, reference box = amber.
-Non-repainting: the chain and box commit on candle **close** only.
-
----
-
 ## Module 4 · DBox (period range)
 
 Boxes the **full high-low range** of each Day / Week / Month — the whole distance price
@@ -128,19 +94,29 @@ travelled in that period — anchored to a chosen timezone (**IST by default**).
 - **Box** from the period **low → high**, filled **light green / red** by the period's
   open vs close (positive period = green, negative = red — updates live).
 - **Vertical line** at the period start (full height).
-- **Price-movement label** — pips + price difference + ▲/▼ — on **every box**
-  (e.g. `320 pips · 0.03200 ▲`). Each completed box keeps its final value.
+
+### Auto timeframe
+
+With **Time frame = Auto** (default) the period follows your chart:
+
+| Chart TF | DBox range |
+|---|---|
+| 15m & below | **Daily** |
+| 1H – 2H | **Weekly** |
+| 4H & higher | **Monthly** |
+
+Or force **Daily / Weekly / Monthly** to fix it.
 
 ### Settings
 
 | Input | What it does | Best value |
 |---|---|---|
 | **Enable DBox** | master on/off | on |
-| **Time frame** | Daily / Weekly / Monthly | Daily |
+| **Time frame** | Auto / Daily / Weekly / Monthly | **Auto** |
 | **Timezone** | period anchor (midnight/week/month) | Asia/Kolkata (IST) |
 | **History (periods)** | how many past boxes to keep | 4–8 |
-| **Show vertical line / box / price movement** | visibility toggles | as desired |
-| **Line / Fill bull / Fill bear / Positive / Negative** | colors | — |
+| **Show vertical line / box** | visibility toggles | as desired |
+| **Line / Fill bull / Fill bear** | colors | — |
 
 **Notes:** periods start at the chosen timezone's boundary (IST midnight for Daily). The
 current box grows as each bar **closes** (no intrabar flicker); past boxes stay fixed.
@@ -165,9 +141,10 @@ Red **no-trade zone** over the hours before each high-impact ("red folder") even
    `2026-06-22 18:00 CAD CPI, 2026-06-25 6:00pm USD PCE`
 3. Leave **Only this chart's currencies** ON. Now EURUSD shows only EUR/USD events, USDCAD
    shows USD/CAD, gold (XAUUSD) shows USD — **from the same list**. No per-chart editing.
-4. Each shown event fills a red **RESTRICTED AREA** box over the **5h before** the event
+4. Each shown event fills a red **NO TRADE ZONE** box over the **5h before** the event
    (so you don't enter), plus a vertical line at the event and a ⛔ label (currency + note).
-   The box renders in the **future** too, so you see the restricted window in advance.
+   The box renders in the **future** too, so you see the window in advance — and an event is
+   **hidden once its window has fully passed** (old news won't clutter the chart).
 
 > You only ever transcribe the red events once per week; the script picks the relevant ones
 > per symbol automatically. Same list works on every chart.
@@ -211,32 +188,4 @@ probability**. **Single master switch:** *Enable MTF trend dashboard*.
 | **Table position** | corner placement | Top Right |
 | **Bull / Bear / Neutral** | colors | — |
 
-## Module 7 · Projection (structure-aware estimate)
-
-A thin **pullback-then-move** path projecting the *likely* scenario, built from real context
-rather than a plain trend line. **Single master switch:** *Enable projection*.
-
-**What it considers:**
-- **MTF bias** (module 6 — all higher TFs) → direction + conviction %
-- **Swing structure** over the lookback (recent weeks/months high & low) → realistic targets
-- **Round numbers** → snaps the target to a clean level
-- **Volatility (ATR)** → how far price likely travels, and how deep the pullback is
-
-**Scenarios it labels:** Bullish continuation · Pullback → rise · Bearish / dump ·
-Pullback → fall · Range. (Gaps aren't predictable, so they're not projected.) It draws the
-curve, a dotted **target line**, and a label with the scenario, **probability %**, and target price.
-
-| Input | What it does | Best value |
-|---|---|---|
-| **Enable projection** | master on/off | on |
-| **Structure lookback** | history studied for swings/range | 120 (~weeks–months) |
-| **Project forward** | bars ahead to draw | 24 |
-| **Show target + scenario** | dotted target line & label | on |
-| **Up / Down path** | path colors by direction | — |
-
-> **Honest note:** still an **estimate** from current structure + momentum, *not* a guarantee.
-> Real price deviates — especially around news. Use it as a bias guide, not a target to trade blindly.
-
----
-
-*All 7 modules complete. Combine them with their master switches to taste.*
+*All modules active. Combine them with their master switches to taste.*
