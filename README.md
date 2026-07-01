@@ -173,18 +173,27 @@ event even before price gets there. Non-repainting.
 
 ## Module 6 · MTF Trend Dashboard
 
-Top-corner table of the trend on **15m / 1H / 2H / 4H / Daily**, plus an **overall weighted
-probability**. **Single master switch:** *Enable MTF trend dashboard*.
+Top-corner table with a **structured** trend read — each timeframe uses the EMA basis that
+fits it — plus a weighted **probability** and a **prediction**.
+**Single master switch:** *Enable MTF trend dashboard*.
 
-- **Per-TF trend:** BULL only if price is above a **rising** trend-EMA, BEAR if below a
-  **falling** one, else NEUTRAL (transition). More robust than price-vs-MA alone.
-- **Overall %:** higher timeframes weigh more (Daily ×5 … 15m ×1). The % shows how aligned
-  the big picture is — e.g. `Bullish 80%` means the weighted higher TFs strongly agree.
+**Per-TF basis:**
+
+| TF | Basis | Bull when… |
+|---|---|---|
+| **15m** | Fast EMA (50) | price above a rising 50 |
+| **1H / 2H** | Fast + Slow (50/200) | price above **both** and 50 > 200 |
+| **4H / Daily** | Slow EMA (200) | price above a rising 200 |
+
+- **Bias %:** higher timeframes weigh more (Daily ×5 … 15m ×1) → how aligned the big picture is.
+- **Prediction:** compares short-term (15m/1H/2H) vs higher-TF (4H/Daily) alignment →
+  *Uptrend/Downtrend continuation · Pullback in uptrend · Bounce in downtrend · Early shift · Range*.
+  A structural read of current alignment — **not a guaranteed forecast**.
 
 | Input | What it does | Best value |
 |---|---|---|
 | **Enable MTF trend dashboard** | master on/off | on |
-| **Trend EMA length** | EMA judging each TF's trend | 50 (20 faster, 200 major) |
+| **Fast EMA / Slow EMA** | the two EMAs per the table above | 50 / 200 |
 | **Table position** | corner placement | Top Right |
 | **Bull / Bear / Neutral** | colors | — |
 

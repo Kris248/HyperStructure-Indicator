@@ -422,33 +422,41 @@ if barstate.islast
 alertcondition(inZone, "In no-trade news window", "Inside a red-folder no-trade window — do not take entries")
 
 // ============================================================================
-//  MODULE 6 · MULTI-TIMEFRAME TREND  (top-right dashboard)
-//  Trend on 15m / 1H / 2H / 4H / Daily + an overall weighted probability.
-//  Per-TF rule: BULL only if price is above a RISING trend-EMA, BEAR if below a
-//  FALLING one, else NEUTRAL (transition). Higher timeframes weigh more in the
-//  overall read, so the % tells you how aligned the big picture is.
+//  MODULE 6 · MULTI-TIMEFRAME TREND  (structured dashboard)
+//  Each timeframe is judged with the EMA basis that suits it:
+//     15m        -> Fast EMA (50)         : short-term trend
+//     1H / 2H    -> Fast + Slow (50/200)  : price above BOTH & 50>200 = bull
+//     4H / Daily -> Slow EMA (200)        : major trend
+//  Then a weighted probability (higher TFs weigh more) and a structural
+//  PREDICTION of the likely next move (continuation / pullback / bounce / range).
+//  This is a structural read of current alignment — not a guaranteed forecast.
 // ============================================================================
 var G6 = "6 · MTF Trend"
 trendOn  = input.bool(true, "Enable MTF trend dashboard", group = G6, tooltip = "Single master switch.")
-trendLen = input.int(50, "Trend EMA length", minval = 5, group = G6,
-     tooltip = "EMA used to judge each timeframe's trend. BEST 50. 20 = faster, 200 = only major trends.")
+emaFast  = input.int(50,  "Fast EMA", minval = 2, group = G6, tooltip = "Used on 15m, and with the slow EMA on 1H/2H. BEST 50.")
+emaSlow  = input.int(200, "Slow EMA", minval = 2, group = G6, tooltip = "Used on 4H/Daily, and with the fast EMA on 1H/2H. BEST 200.")
 trendPos = input.string("Top Right", "Table position", options = ["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group = G6)
 cTBull = input.color(#26a69a, "Bull", inline = "t1", group = G6)
 cTBear = input.color(#ef5350, "Bear", inline = "t1", group = G6)
 cTNeut = input.color(color.gray, "Neutral", inline = "t1", group = G6)
 
 sym = syminfo.tickerid
-f_tfTrend(tf, ln) =>
+// trend from ONE EMA: price above a rising EMA = bull, below a falling one = bear
+f_tf1(tf, ln) =>
     [c, e, ep] = request.security(sym, tf, [close, ta.ema(close, ln), ta.ema(close, ln)[1]],
          lookahead = barmerge.lookahead_off, gaps = barmerge.gaps_off)
-    rising = e > ep
-    c > e and rising ? 1 : c < e and not rising ? -1 : 0
+    e > ep and c > e ? 1 : e < ep and c < e ? -1 : 0
+// trend from BOTH EMAs: price above both AND fast>slow = bull (mirror for bear)
+f_tf2(tf) =>
+    [c, ef, es] = request.security(sym, tf, [close, ta.ema(close, emaFast), ta.ema(close, emaSlow)],
+         lookahead = barmerge.lookahead_off, gaps = barmerge.gaps_off)
+    c > ef and c > es and ef > es ? 1 : c < ef and c < es and ef < es ? -1 : 0
 
-t15 = f_tfTrend("15",  trendLen)
-t1h = f_tfTrend("60",  trendLen)
-t2h = f_tfTrend("120", trendLen)
-t4h = f_tfTrend("240", trendLen)
-tD  = f_tfTrend("D",   trendLen)
+t15 = f_tf1("15",  emaFast)      // 15m  -> 50 EMA
+t1h = f_tf2("60")                // 1H   -> 50 & 200
+t2h = f_tf2("120")               // 2H   -> 50 & 200
+t4h = f_tf1("240", emaSlow)      // 4H   -> 200 EMA
+tD  = f_tf1("D",   emaSlow)      // 1D   -> 200 EMA
 
 // weighted overall (Daily weighs most)
 bullW = (t15 > 0 ? 1 : 0) + (t1h > 0 ? 2 : 0) + (t2h > 0 ? 3 : 0) + (t4h > 0 ? 4 : 0) + (tD > 0 ? 5 : 0)
@@ -457,21 +465,36 @@ netW  = bullW - bearW
 ovDir = netW > 0 ? 1 : netW < 0 ? -1 : 0
 ovPct = math.round(math.abs(netW) / 15.0 * 100)
 
+// prediction: compare short-term (15m/1H/2H) vs higher-TF (4H/Daily) alignment
+sSum = (t15 > 0 ? 1 : t15 < 0 ? -1 : 0) + (t1h > 0 ? 1 : t1h < 0 ? -1 : 0) + (t2h > 0 ? 1 : t2h < 0 ? -1 : 0)
+lSum = (t4h > 0 ? 1 : t4h < 0 ? -1 : 0) + (tD > 0 ? 1 : tD < 0 ? -1 : 0)
+sS = sSum > 0 ? 1 : sSum < 0 ? -1 : 0
+sL = lSum > 0 ? 1 : lSum < 0 ? -1 : 0
+pred = sL > 0 and sS > 0 ? "Uptrend continuation ↑" :
+       sL < 0 and sS < 0 ? "Downtrend continuation ↓" :
+       sL > 0 and sS < 0 ? "Pullback in uptrend (dip)" :
+       sL < 0 and sS > 0 ? "Bounce in downtrend" :
+       sL == 0 and sS > 0 ? "Early bullish shift" :
+       sL == 0 and sS < 0 ? "Early bearish shift" :
+       sS == 0 and sL > 0 ? "Higher-TF up — wait entry" :
+       sS == 0 and sL < 0 ? "Higher-TF down — wait entry" : "Range / no clear trend"
+
 f_tt(d) => d > 0 ? "Bullish" : d < 0 ? "Bearish" : "Neutral"
 f_tc(d) => d > 0 ? cTBull : d < 0 ? cTBear : cTNeut
 f_tpos(p) => p == "Top Left" ? position.top_left : p == "Bottom Right" ? position.bottom_right : p == "Bottom Left" ? position.bottom_left : position.top_right
 
-var table mtfTbl = table.new(f_tpos(trendPos), 2, 7, border_width = 1, frame_color = color.new(color.gray, 40), frame_width = 1)
+var table mtfTbl = table.new(f_tpos(trendPos), 2, 8, border_width = 1, frame_color = color.new(color.gray, 40), frame_width = 1)
 f_trow(r, k, v, c) =>
     table.cell(mtfTbl, 0, r, k, text_color = color.silver, text_size = tSize, text_halign = text.align_left, bgcolor = color.new(color.black, 10))
     table.cell(mtfTbl, 1, r, v, text_color = c, text_size = tSize, text_halign = text.align_left, bgcolor = color.new(color.black, 10))
 if barstate.islast and trendOn
     f_trow(0, "MTF TREND", syminfo.ticker, color.aqua)
-    f_trow(1, "15m",   f_tt(t15), f_tc(t15))
-    f_trow(2, "1H",    f_tt(t1h), f_tc(t1h))
-    f_trow(3, "2H",    f_tt(t2h), f_tc(t2h))
-    f_trow(4, "4H",    f_tt(t4h), f_tc(t4h))
-    f_trow(5, "Daily", f_tt(tD),  f_tc(tD))
-    f_trow(6, "Overall", f_tt(ovDir) + "  " + str.tostring(ovPct) + "%", f_tc(ovDir))
+    f_trow(1, "15m · " + str.tostring(emaFast),                f_tt(t15), f_tc(t15))
+    f_trow(2, "1H · "  + str.tostring(emaFast) + "/" + str.tostring(emaSlow), f_tt(t1h), f_tc(t1h))
+    f_trow(3, "2H · "  + str.tostring(emaFast) + "/" + str.tostring(emaSlow), f_tt(t2h), f_tc(t2h))
+    f_trow(4, "4H · "  + str.tostring(emaSlow),                f_tt(t4h), f_tc(t4h))
+    f_trow(5, "1D · "  + str.tostring(emaSlow),                f_tt(tD),  f_tc(tD))
+    f_trow(6, "Bias",       f_tt(ovDir) + "  " + str.tostring(ovPct) + "%", f_tc(ovDir))
+    f_trow(7, "Prediction", pred, f_tc(sL != 0 ? sL : sS))
 
 // (Projection module removed)
